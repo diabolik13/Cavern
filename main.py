@@ -1,7 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.tri as mtri
 import scipy.sparse as sparse
+
 from scipy.io import loadmat
+
+# This import registers the 3D projection, but is otherwise unused.
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 
 def PolyArea(x, y):
@@ -42,7 +47,7 @@ def generate_stiffness_matrix(el1, el2, el3, lamda, mu):
     s_ek22 = np.zeros((3, 3))
     dx_e = np.zeros((3, 3))
     dy_e = np.zeros((3, 3))
-    Nk = np.zeros(3)
+    # Nk = np.zeros(3)
     # Nl = np.zeros(3)
 
     # for i in range(3):
@@ -66,8 +71,8 @@ def generate_stiffness_matrix(el1, el2, el3, lamda, mu):
             s_ek12[i, j] = area * (lamda * c[1, i] * c[0, j] + mu * c[0, i] * c[1, j])
             s_ek22[i, j] = area * ((lamda + 2 * mu) * c[1, i] * c[1, j] + mu * c[0, i] * c[0, j])
             s_ek21[i, j] = area * (lamda * c[0, i] * c[1, j] + mu * c[1, i] * c[0, j])
-            dx_e[i, j] = area / 3 * (c[0, j] * Nk[i])
-            dy_e[i, j] = area / 3 * (c[1, j] * Nk[i])
+            # dx_e[i, j] = area / 3 * (c[0, j] * Nk[i])
+            # dy_e[i, j] = area / 3 * (c[1, j] * Nk[i])
 
     return s_ek11, s_ek12, s_ek21, s_ek22, dx_e, dy_e
 
@@ -165,14 +170,16 @@ stif = loadmat('stif.mat')
 p = mesh['p']
 e = mesh['e']
 t = mesh['t']
-t = t - 1
+t = t - 1  # update elements numbering to start with 0
+x = p[0, :]
+y = p[1, :]
 
-S11 = stif['S11']
-S12 = stif['S12']
-S21 = stif['S21']
-S22 = stif['S22']
-fxo = stif['fxo']
-fyo = stif['fyo']
+# S11 = stif['S11']
+# S12 = stif['S12']
+# S21 = stif['S21']
+# S22 = stif['S22']
+# fxo = stif['fxo']
+# fyo = stif['fyo']
 
 rho = 2980  # rock density
 K = 56.1e9  # Bulk modulus
@@ -230,18 +237,18 @@ fy[y_bnd] = 0
 # s = np.concatenate((s1, s2), axis=1)
 # f = fx + fy
 
-# s1 = np.concatenate((s11, s12), axis=1)
-# s2 = np.concatenate((s21, s22), axis=1)
-# s = np.concatenate((s1, s2), axis=0)
-# f = np.concatenate((fx, fy), axis=0)
+s1 = np.concatenate((s11, s12), axis=1)
+s2 = np.concatenate((s21, s22), axis=1)
+s = np.concatenate((s1, s2), axis=0)
+f = np.concatenate((fx, fy), axis=0)
 # u1 = np.linalg.solve(s1, fx)
 # u2 = np.linalg.solve(s2, fy)
 # u = u1 + u2
 
-s1 = [s11, s12]
-s2 = [s21, s22]
-s = np.column_stack((s1, s2))
-f = [fx, fy]
+# s1 = [s11, s12]
+# s2 = [s21, s22]
+# s = np.column_stack((s1, s2))
+# f = [fx, fy]
 
 nz11 = np.count_nonzero(s11)
 nz12 = np.count_nonzero(s12)
@@ -268,7 +275,10 @@ t4 = "Number of nonzero values in s22 = {}".format(nz22)
 #
 # plt.show()
 
-u = np.linalg.solve(s, f)
+# u = np.linalg.solve(s, f)
+u = np.linalg.lstsq(s, f)
+ux = np.array(u[0][:nnodes]).reshape((nnodes,))
+uy = np.array(u[0][nnodes:]).reshape((nnodes,))
 
 # s1 = [[s11], [s12]]
 # s2 = [[s21], [s22]]
@@ -279,5 +289,15 @@ u = np.linalg.solve(s, f)
 # u2 = np.linalg.solve(s2, fy)
 # u = u1 + u2
 
+# fig = plt.figure()
+# ax = fig.gca(projection='3d')
+# ax.plot_trisurf(x, y, ux, linewidth=0.2, antialiased=True)
+# plt.triplot(x, y, )
+# plt.show()
+
+fig = plt.figure()
+ax = fig.gca(projection='3d')
+ax.plot_trisurf(x, y, uy, linewidth=0.2, antialiased=True)
+plt.show()
 
 print("done")
