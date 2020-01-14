@@ -80,36 +80,6 @@ def assemble_stiffness_matrix(dof, nnodes, p, t, lamda, mu):
     return K
 
 
-# def generate_element_vector(el, p):
-#     X = [el[:, 0]]
-#     Y = [el[:, 1]]
-#     area = PolyArea(X, Y)
-#     g = np.zeros((nnodes, 1))
-#
-#     for i in range(3):
-#         if X[i] == 1:
-#             g[i] = -1
-#
-#     f_ek = area / 3 * g
-#
-#     return f_ek
-
-
-# def generate_element_vector_y(el1, el2, el3, p):
-#     X = [el1[0], el2[0], el3[0]]
-#     Y = [el1[1], el2[1], el3[1]]
-#     area = PolyArea(X, Y)
-#     g = np.zeros((nnodes, 1))
-#
-#     for i in range(3):
-#         if Y[i] == 1:
-#             g[i] = -1
-#
-#     f_ek = area / 3 * g
-#
-#     return f_ek
-
-
 def assemble_vector(nnodes, p, t):
     f = np.zeros((2 * nnodes, 1))
 
@@ -131,21 +101,6 @@ def assemble_vector(nnodes, p, t):
             f[I[i]] = f[I[i]] + fe[i]
 
     return f
-
-
-# def assemble_vector_y(nnodes, p, t):
-#     f = np.zeros((nnodes, 1))
-#
-#     for k in range(len(t[0])):
-#         el1 = p[:, t[0, k]]
-#         el2 = p[:, t[1, k]]
-#         el3 = p[:, t[2, k]]
-#         f_ek = generate_element_vector_y(el1, el2, el3, p)
-#
-#         for i in range(3):
-#             f[t[i, k]] = f[t[i, k]] + f_ek[i]
-#
-#     return f
 
 
 rho = 2980  # rock density
@@ -199,9 +154,43 @@ u = np.linalg.solve(k, f)
 ux = u[::2].reshape(nnodes, )
 uy = u[1::2].reshape(nnodes, )
 
-fig = plt.figure()
-ax = fig.gca(projection='3d')
-ax.plot_trisurf(x, y, ux, linewidth=0.2, antialiased=True, cmap=cm.jet)
+# fig = plt.figure()
+# ax = fig.gca(projection='3d')
+# ax.plot_trisurf(x, y, ux, linewidth=0.2, antialiased=True, cmap=cm.jet)
+# fig = plt.figure()
+# ax = fig.gca(projection='3d')
+# ax.plot_trisurf(x, y, uy, linewidth=0.2, antialiased=True, cmap=cm.jet)
+# plt.show()
+
+# set up a figure twice as wide as it is tall
+fig = plt.figure(figsize=plt.figaspect(0.5))
+
+# ===============
+#  First subplot
+# ===============
+# set up the axes for the first plot
+ax = fig.add_subplot(1, 2, 1, projection='3d')
+
+# plot a 3D surface
+surf = ax.plot_trisurf(x, y, ux, cmap=cm.jet,
+                       linewidth=0, antialiased=False)
+ax.set_zlim(-1.01, 1.01)
+ax.view_init(elev=90, azim=-90)
+fig.colorbar(surf, shrink=0.5, aspect=10)
+
+# ===============
+# Second subplot
+# ===============
+# set up the axes for the second plot
+ax = fig.add_subplot(1, 2, 2, projection='3d')
+
+# plot a 3D surface
+surf = ax.plot_trisurf(x, y, uy, cmap=cm.jet,
+                       linewidth=0, antialiased=False)
+ax.set_zlim(-1.01, 1.01)
+ax.view_init(elev=90, azim=-90)
+fig.colorbar(surf, shrink=0.5, aspect=10)
+
 plt.show()
 
 print("done")
