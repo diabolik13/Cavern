@@ -97,6 +97,7 @@ def assemble_vector(nnodes, p, t):
         for i in range(3):
             X = np.array(el[:, 0])
             Y = np.array(el[:, 1])
+            # Applying Newman's B.C. on the right edge
             if X[i] == 1:
                 fe[j] = -1
             j = j + 2
@@ -267,17 +268,20 @@ nele = len(t[0])  # number of elements
 x = p[0, :]  # x-coordinates of nodes
 y = p[1, :]  # y-coordinates of nodes
 
-# Below are the indices of dof on the domain's boundary, such that L_bnd and R_bnd contain x dof indices and B_bnd
+# Below are the indices of dof on the domain's boundary,
+# such that L_bnd and R_bnd contain x dof indices and B_bnd
 # and T_bnd contain y dof indices
 L_bnd, R_bnd, B_bnd, T_bnd = extract_bnd(p, nnodes, dof)
-I_bnd = np.concatenate((L_bnd, R_bnd, B_bnd, T_bnd))
+# I_bnd = np.concatenate((L_bnd, R_bnd, B_bnd, T_bnd))
+
+# Assembling the linear system of equations: stiffness matrix k and load vector f
 k = assemble_stiffness_matrix(dof, nnodes, p, t, D)
 f = assemble_vector(nnodes, p, t)
 
 # check_matrix(k)
 
 # Impose Dirichlet B.C.
-D_bnd = np.concatenate((B_bnd, T_bnd, L_bnd))
+D_bnd = np.concatenate((B_bnd, T_bnd, L_bnd))  # DBC on B, T and L domain edges
 k[D_bnd, :] = 0
 k[:, D_bnd] = 0
 k[D_bnd, D_bnd] = 1
