@@ -176,6 +176,7 @@ def plot_results(x, y, t, ux, uy, strainx, strainy, stressx, stressy):
     axs[1, 0].set_aspect('equal', 'box')
     fig.tight_layout()
     divider = make_axes_locatable(axs[1, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
 
     im = axs[0, 1].tricontourf(triang, strainx, N)
@@ -266,6 +267,8 @@ nele = len(t[0])  # number of elements
 x = p[0, :]  # x-coordinates of nodes
 y = p[1, :]  # y-coordinates of nodes
 
+# Below are the indices of dof on the domain's boundary, such that L_bnd and R_bnd contain x dof indices and B_bnd
+# and T_bnd contain y dof indices
 L_bnd, R_bnd, B_bnd, T_bnd = extract_bnd(p, nnodes, dof)
 I_bnd = np.concatenate((L_bnd, R_bnd, B_bnd, T_bnd))
 k = assemble_stiffness_matrix(dof, nnodes, p, t, D)
@@ -278,7 +281,7 @@ D_bnd = np.concatenate((B_bnd, T_bnd, L_bnd))
 k[D_bnd, :] = 0
 k[:, D_bnd] = 0
 k[D_bnd, D_bnd] = 1
-# f[bnd] = 0
+f[D_bnd] = 0
 
 # check_matrix(k)
 
