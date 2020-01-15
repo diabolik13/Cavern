@@ -1,7 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
+import meshio
+import sys
+import warnings
 
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.io import loadmat
 from matplotlib import cm
 from numpy import inf
@@ -148,177 +152,147 @@ def nodal_stress_strain(p, t, straing, stressg):
     return strain, stress
 
 
-def plot_results(XX, YY):
-    # set up a figure twice as wide as it is tall
-    fig = plt.figure(figsize=plt.figaspect(0.5))
+def plot_results(x, y, t, ux, uy, strainx, strainy, stressx, stressy):
+    # Plot the triangulation.
+    triang = mtri.Triangulation(x, y, t.transpose())
 
-    # ===============
-    #  First subplot
-    # ===============
-    # set up the axes for the first plot
-    ax = fig.add_subplot(1, 2, 1, projection='3d')
+    # Set up the figure
+    fig, axs = plt.subplots(nrows=2, ncols=3)
+    # axs = axs.flatten()
+    N = 50
 
-    # plot a 3D surface
-    surf = ax.plot_trisurf(x, y, XX, cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set_zlim(-100.01, 100.01)
-    ax.view_init(elev=90, azim=-90)
-    fig.colorbar(surf, shrink=0.5, aspect=10)
+    im = axs[0, 0].tricontourf(triang, ux, N)
+    axs[0, 0].triplot(triang, lw=0.5)
+    axs[0, 0].set_title('Displacement in X')
+    axs[0, 0].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[0, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
 
-    # ===============
-    # Second subplot
-    # ===============
-    # set up the axes for the second plot
-    ax = fig.add_subplot(1, 2, 2, projection='3d')
+    im = axs[1, 0].tricontourf(triang, uy, N)
+    axs[1, 0].triplot(triang, lw=0.5)
+    axs[1, 0].set_title('Displacement in Y')
+    axs[1, 0].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[1, 0])
+    plt.colorbar(im, cax=cax)
 
-    # plot a 3D surface
-    surf = ax.plot_trisurf(x, y, YY, cmap=cm.viridis,
-                           linewidth=0, antialiased=False)
-    ax.set_zlim(-100.01, 100.01)
-    ax.view_init(elev=90, azim=-90)
-    fig.colorbar(surf, shrink=0.5, aspect=10)
+    im = axs[0, 1].tricontourf(triang, strainx, N)
+    axs[0, 1].triplot(triang, lw=0.5)
+    axs[0, 1].set_title('Strain in X')
+    axs[0, 1].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[0, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+
+    im = axs[1, 1].tricontourf(triang, strainy, N)
+    axs[1, 1].triplot(triang, lw=0.5)
+    axs[1, 1].set_title('Strain in Y')
+    axs[1, 1].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[1, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+
+    im = axs[0, 2].tricontourf(triang, stressx, N)
+    axs[0, 2].triplot(triang, lw=0.5)
+    axs[0, 2].set_title('Stress in X')
+    axs[0, 2].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[0, 2])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+
+    im = axs[1, 2].tricontourf(triang, stressy, N)
+    axs[1, 2].triplot(triang, lw=0.5)
+    axs[1, 2].set_title('Stress in X')
+    axs[1, 2].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[1, 2])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
 
     plt.show()
 
 
+def check_matrix(k):
+    nz_k = np.count_nonzero(k)
+    det = np.linalg.det(k)
+    txt = "Number of nonzero values in k = {}, det = {}".format(nz_k, det)
+    plt.spy(k)
+    plt.title(txt)
+    plt.show()
+
+
+def load_mesh(mesh_filename):
+    ext = mesh_filename.split(".")[-1]
+    if ext.lower() == 'msh':
+        m = meshio.read(mesh_filename)
+        p = m.points.transpose()
+        t = m.cells["triangle"].transpose()
+    elif ext.lower() == 'mat':
+        m = loadmat(mesh_filename)
+        p = m['p']
+        # e = m['e']
+        t = m['t']
+        t = t - 1  # update elements numbering to start with 0
+        t = np.delete(t, 3, axis=0)  # remove sub domain index (not necessary)
+    else:
+        warnings.showwarning('Mesh type is not recognized')
+        sys.exit()
+
+    return p, t
+
+
+mesh_filename = 'cave2.msh'  # supported formats: *.mat and *.msh
 rho = 2980  # rock density
 K = 56.1e9  # Bulk modulus
 mu = 29.1e9  # Shear modulus
-g = 9.81  # gravity constant
-H = 1250  # depth of the middle of the salt layer
-dt = 15  # timestep
-Nt = 50  # number of timesteps
-A = 1e-14  # material constant (Norton Power Law)
-n = 3  # stress exponent (Norton Power Law)
 P = 1  # cavern's pressure
+dof = 2  # degrees of freedom
 
 lamda = K - 2 / 3 * mu  # Elastic modulus
 E = mu * (3 * lamda + 2 * mu) / (lamda + mu)  # Young's modulus
 nu = lamda / (2 * (lamda + mu))  # Poisson's ratio
 D = np.array([[lamda + 2 * mu, lamda, 0],
               [lamda, lamda + 2 * mu, 0],
-              [0, 0, mu]])
+              [0, 0, mu]])  # Elasticity tensor
 
-mesh = loadmat('rounded_cave3.mat')
-# mesh = loadmat('R1.mat')
-
-p = mesh['p']
-e = mesh['e']
-t = mesh['t']
-t = t - 1  # update elements numbering to start with 0
-t = np.delete(t, 3, axis=0)
-dof = 2
-nnodes = p.shape[1]
-nele = len(t[0])
-x = p[0, :]
-y = p[1, :]
+p, t = load_mesh(mesh_filename)  # load mesh data: points and triangles
+nnodes = p.shape[1]  # number of nodes
+nele = len(t[0])  # number of elements
+x = p[0, :]  # x-coordinates of nodes
+y = p[1, :]  # y-coordinates of nodes
 
 L_bnd, R_bnd, B_bnd, T_bnd = extract_bnd(p, nnodes, dof)
 I_bnd = np.concatenate((L_bnd, R_bnd, B_bnd, T_bnd))
 k = assemble_stiffness_matrix(dof, nnodes, p, t, D)
 f = assemble_vector(nnodes, p, t)
 
+# check_matrix(k)
+
 # Impose Dirichlet B.C.
-bnd = np.concatenate((B_bnd, T_bnd, L_bnd))
-k[bnd, :] = 0
-k[:, bnd] = 0
-k[bnd, bnd] = 1
+D_bnd = np.concatenate((B_bnd, T_bnd, L_bnd))
+k[D_bnd, :] = 0
+k[:, D_bnd] = 0
+k[D_bnd, D_bnd] = 1
 # f[bnd] = 0
 
+# check_matrix(k)
+
 u = np.linalg.solve(k, f)  # nodal displacements vector
+ux = u[::2].reshape(nnodes, )
+uy = u[1::2].reshape(nnodes, )
 straing, stressg = stress_strain(u, D)  # stress and strains evaluated at Gaussian points
-strain, stress = nodal_stress_strain(p, t, straing, stressg)
+strain, stress = nodal_stress_strain(p, t, straing, stressg)  # stress and strains evaluated at nodal points
 strainx = strain[0, :]
 strainy = strain[1, :]
 stressx = stress[0, :]
 stressy = stress[1, :]
 
-ux = u[::2].reshape(nnodes, )
-uy = u[1::2].reshape(nnodes, )
-
-# displacement_plot = plot_results(ux, uy)
-# strain_plot = plot_results(strainx, strainy)
-# stress_plot = plot_results(stressx, stressy)
-
-# # set up a figure twice as wide as it is tall
-# fig = plt.figure(figsize=plt.figaspect(0.5))
-#
-# # ===============
-# #  First subplot
-# # ===============
-# # set up the axes for the first plot
-# ax = fig.add_subplot(1, 2, 1, projection='3d')
-#
-# # plot a 3D surface
-# surf = ax.plot_trisurf(x, y, ux, cmap=cm.jet,
-#                        linewidth=0, antialiased=False)
-# ax.set_zlim(-1.01, 1.01)
-# ax.view_init(elev=90, azim=-90)
-# fig.colorbar(surf, shrink=0.5, aspect=10)
-#
-# # ===============
-# # Second subplot
-# # ===============
-# # set up the axes for the second plot
-# ax = fig.add_subplot(1, 2, 2, projection='3d')
-#
-# # plot a 3D surface
-# surf = ax.plot_trisurf(x, y, uy, cmap=cm.jet,
-#                        linewidth=0, antialiased=False)
-# ax.set_zlim(-1.01, 1.01)
-# ax.view_init(elev=90, azim=-90)
-# fig.colorbar(surf, shrink=0.5, aspect=10)
-#
-# plt.show()
-
-triangles = np.zeros((nele, 3))
-for i in range(nele):
-    triangles[[i], :] = [t[:, i]]
-
-triang = mtri.Triangulation(x, y, triangles)
-
-# Set up the figure
-fig, axs = plt.subplots(nrows=2, ncols=3)
-axs = axs.flatten()
-
-# Plot the triangulation.
-plot1 = axs[0].tricontourf(triang, ux, 100)
-axs[0].triplot(triang, lw=0.5)
-axs[0].set_title('Displacement in X')
-fig.tight_layout()
-fig.colorbar(plot1, ax=axs[0])
-
-plot2 = axs[3].tricontourf(triang, uy, 100)
-axs[3].triplot(triang, lw=0.5)
-axs[3].set_title('Displacement in Y')
-fig.tight_layout()
-fig.colorbar(plot2, ax=axs[3])
-
-plot3 = axs[1].tricontourf(triang, strainx, 100)
-axs[1].triplot(triang, lw=0.5)
-axs[1].set_title('Strain in X')
-fig.tight_layout()
-fig.colorbar(plot3, ax=axs[1])
-
-plot4 = axs[4].tricontourf(triang, strainy, 100)
-axs[4].triplot(triang, lw=0.5)
-axs[4].set_title('Strain in Y')
-fig.tight_layout()
-fig.colorbar(plot4, ax=axs[4])
-
-plot5 = axs[2].tricontourf(triang, stressx, 100)
-axs[2].triplot(triang, lw=0.5)
-axs[2].set_title('Stress in X')
-fig.tight_layout()
-fig.colorbar(plot5, ax=axs[2])
-
-plot6 = axs[5].tricontourf(triang, stressy, 100)
-axs[5].triplot(triang, lw=0.5)
-axs[5].set_title('Stress in Y')
-fig.tight_layout()
-fig.colorbar(plot6, ax=axs[5])
-plt.show()
-
-
+# Plot results
+plot_results(x, y, t, ux, uy, strainx, strainy, stressx, stressy)
 
 print("done")
