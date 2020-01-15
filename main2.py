@@ -108,7 +108,7 @@ def assemble_vector(nnodes, p, t):
     return f
 
 
-def stress_strain(u, D):
+def gauss_stress_strain(u, D):
     nele = len(t[0])
     strain = np.zeros((3, nele))
     stress = np.zeros((3, nele))
@@ -292,7 +292,7 @@ f[D_bnd] = 0
 u = np.linalg.solve(k, f)  # nodal displacements vector
 ux = u[::2].reshape(nnodes, )
 uy = u[1::2].reshape(nnodes, )
-straing, stressg = stress_strain(u, D)  # stress and strains evaluated at Gaussian points
+straing, stressg = gauss_stress_strain(u, D)  # stress and strains evaluated at Gaussian points
 strain, stress = nodal_stress_strain(p, t, straing, stressg)  # stress and strains evaluated at nodal points
 strainx = strain[0, :]
 strainy = strain[1, :]
