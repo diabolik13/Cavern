@@ -21,7 +21,7 @@ bnd = gmsh_boundaries(m)
 k = assemble_stiffness_matrix(dof, p, t, D)
 f = assemble_vector(p, t)
 
-# check_matrix(k)
+# check_matrix(k)  # uncomment to spy(k), det(k) and non-zero values
 
 # Impose Dirichlet B.C.
 D_bnd = np.concatenate((B_bnd, T_bnd, L_bnd))  # DBC on B, T and L domain edges
@@ -30,7 +30,7 @@ k[:, D_bnd] = 0
 k[D_bnd, D_bnd] = 1
 f[D_bnd] = 0
 
-# check_matrix(k)
+# check_matrix(k)  # uncomment to spy(k), det(k) and non-zero values
 
 # Solve system of linear equations ku = f
 u = np.linalg.solve(k, f)  # nodal displacements vector
