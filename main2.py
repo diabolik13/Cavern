@@ -37,6 +37,7 @@ u = np.linalg.solve(k, f)  # nodal displacements vector
 
 # Postprocessing for stresses and strains evaluation
 straing, stressg = gauss_stress_strain(p, t, u, D)  # stress and strains evaluated at Gaussian points
+# TODO: do a proper extrapolation!
 strain, stress = nodal_stress_strain(p, t, straing, stressg)  # stress and strains extrapolated to nodal points
 
 # Plot results

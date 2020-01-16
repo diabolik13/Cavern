@@ -260,7 +260,7 @@ def load_mesh(mesh_filename):
     elif ext.lower() == 'mat':
         m = loadmat(mesh_filename)
         p = m['p']
-        # e = m['e']
+        # e = m['e']  # edges data
         t = m['t']
         t = t - 1  # update elements numbering to start with 0
         t = np.delete(t, 3, axis=0)  # remove sub domain index (not necessary)
