@@ -25,4 +25,4 @@ stress = np.dot(D, strain)
 
 plot_results(p, t, u, strain, stress)
 
-#TODO: here goes viscoplastic stuff
+#TODO: here goes viscoplastic
