@@ -16,7 +16,9 @@ def retrieve_name(var):
     return [var_name for var_name, var_val in callers_local_vars if var_val is var]
 
 
-def animate_plot(nt, p, t, output):
+def write_results_gif(nt, p, t, output):
+    """Saves results in separate files in *.gif format."""
+
     x = p[0, :]  # x-coordinates of nodes
     y = p[1, :]  # y-coordinates of nodes
     nnodes = len(p[0])
@@ -97,7 +99,7 @@ def animate_plot(nt, p, t, output):
                 c = ax.tricontourf(triang, z[:, i], 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                                    levels=np.linspace(np.min(z), np.max(z), 10))
                 ax.triplot(triang, color='white', lw=0.1)
-                ax.set_title(label + ', elapsed time ' + "{:10.2f}".format((et[i] / 86400)) + ' days.')
+                ax.set_title(label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.')
                 cbar = plt.colorbar(c, cax=cax, format='%.0e')
                 cbar.set_label(label + ' magnitude ' + units)
                 ax.set_xlabel('x [m]')
@@ -108,7 +110,9 @@ def animate_plot(nt, p, t, output):
             anim.save(label + '.gif', writer='imagemagick')
 
 
-def write_plot(nt, m, p, output):
+def write_results_xdmf(nt, m, p, output):
+    """Saves results in one file in *.xdmf format for ParaView."""
+
     nnodes = len(p[0])
     time = np.round((output['elapsed time'] / 86400), 2)
     data = {

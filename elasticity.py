@@ -14,6 +14,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 def lame(k, mu):
+    """Calculates lame parameters, elasticity tensor etc."""
+
     lamda = k - 2 / 3 * mu  # Elastic modulus
     e = mu * (3 * lamda + 2 * mu) / (lamda + mu)  # Young's modulus
     nu = lamda / (2 * (lamda + mu))  # Poisson's ratio
@@ -29,8 +31,7 @@ def polyarea(x, y):
 
 def extract_bnd(p, dof):
     """Extracts indices of dof on the domain's boundary, such that L_bnd and R_bnd contain x-dof indices and
-    B_bnd and T_bnd contain y-dof indices.
-    """
+    B_bnd and T_bnd contain y-dof indices."""
 
     nnodes = p.shape[1]  # number of nodes
     l_bnd = np.array([], dtype='i')
@@ -284,7 +285,7 @@ def plot_parameter(p, t, f):
 
 
 def check_matrix(k):
-    """Cheks stifness matrix.
+    """Checks stiffness matrix.
 
     Returns:
         nz_k: number of nonzero values.
@@ -300,6 +301,8 @@ def check_matrix(k):
 
 
 def load_mesh(mesh_filename):
+    """Loads mesh data: points and triangles."""
+
     ext = mesh_filename.split(".")[-1]
     if ext.lower() == 'msh':
         m = meshio.read(mesh_filename)
@@ -427,6 +430,8 @@ def deviatoric_stress(stress):
 
 
 def calculate_creep(input):
+    """Models creep behavior for the given input."""
+
     p = input['points']
     t = input['elements']
     a = input['material constant']

@@ -1,294 +1,55 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.tri as mtri
-import scipy.sparse as sparse
+import time
 
-from sympy import Matrix
-from scipy.io import loadmat
-from numpy import inf
+from elasticity import *
+from animate_plot import *
 
-# This import registers the 3D projection, but is otherwise unused.
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+time_start = time.time()
 
+# Define input parameters and load mesh
+mesh_filename = 'new_cave.msh'  # supported formats: *.mat and *.msh
+rho = 2160  # rock density, [kg/m3]
+K = 22e9  # Bulk modulus, [Pa]
+mu = 11e9  # Shear modulus, [Pa]
+P = 5e6  # cavern's pressure, [Pa]
+dof = 2  # degrees of freedom, [-]
+Nt = 25  # number of time steps, [-]
+A = 1e-42  # creep material constant, [Pa]^n
+n = 5  # creep material constant, [-]
+th = 1e3  # thickness of the model, [m]
+w = 1e2  # cavern width (used for cavern boundary forces calculation), [m]
+dt = 31536000e-2  # time step, [s]
+cfl = 1e3  # CFL
 
-def PolyArea(x, y):
-    return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
+lamda, E, nu, D = lame(K, mu)
+m, p, t = load_mesh(mesh_filename)
+L_bnd, R_bnd, B_bnd, T_bnd = extract_bnd(p, dof)
+D_bnd = np.concatenate((B_bnd, T_bnd, L_bnd, R_bnd))
+Px, Py, nind_c = cavern_boundaries(m, p, P, w)
+k = assemble_stiffness_matrix(dof, p, t, D, th)
+f = assemble_vector(p, t, nind_c, Px, Py)
+k, f = impose_dirichlet(k, f, D_bnd)
+# check_matrix(k)
 
+input = {
+    'time step size': dt,
+    'number of timesteps': Nt,
+    'points': p,
+    'elements': t,
+    'material constant': A,
+    'material exponent': n,
+    'elasticity tensor': D,
+    'shear moduli': mu,
+    'Lame parameter': lamda,
+    'external forces': f,
+    'stiffness matrix': k,
+    'Dirichlet boundaries': D_bnd,
+    'CFL': cfl
+}
 
-def extract_bnd(p, nnodes):
-    l_bnd = np.array([], dtype='i')
-    r_bnd = np.array([], dtype='i')
-    b_bnd = np.array([], dtype='i')
-    t_bnd = np.array([], dtype='i')
+output = calculate_creep(input)
+elapsed = time.time() - time_start
+print("Simulation is done in {} seconds. Total simulation is {} seconds. "
+      "Maximum displacement is {} m.".format(elapsed, output['elapsed time'][-1], np.max(abs(output['displacement']))))
 
-    for node in range(nnodes):
-        if p[0][node] == -1:
-            l_bnd = np.append(l_bnd, node)
-        if p[1][node] == -1:
-            b_bnd = np.append(b_bnd, node)
-        if p[0][node] == 1:
-            r_bnd = np.append(r_bnd, node)
-        if p[1][node] == 1:
-            t_bnd = np.append(t_bnd, node)
-
-    return l_bnd, r_bnd, b_bnd, t_bnd
-
-
-def generate_stiffness_matrix(el1, el2, el3, lamda, mu):
-    X = [el1[0], el2[0], el3[0]]
-    Y = [el1[1], el2[1], el3[1]]
-    area = PolyArea(X, Y)
-    m = [[el1[0], el1[1], 1],
-         [el2[0], el2[1], 1],
-         [el3[0], el3[1], 1]]
-    c = np.linalg.solve(m, np.identity(3))
-
-    s_ek11 = np.zeros((3, 3))
-    s_ek12 = np.zeros((3, 3))
-    s_ek21 = np.zeros((3, 3))
-    s_ek22 = np.zeros((3, 3))
-    dx_e = np.zeros((3, 3))
-    dy_e = np.zeros((3, 3))
-    # Nk = np.zeros(3)
-    # Nl = np.zeros(3)
-
-    for i in range(3):
-        # Nk[i] = c[0, i] * X[i] + c[1, i] * Y[i] + c[2, i]
-        for j in range(3):
-            # Nl[j] = c[0, j] * X[j] + c[1, j] * Y[j] + c[2, j]
-            s_ek11[i, j] = area * ((lamda + 2 * mu) * c[0, i] * c[0, j] + mu * c[1, i] * c[1, j])
-            s_ek12[i, j] = area * (lamda * c[1, j] * c[0, i] + mu * c[0, j] * c[1, i])
-            s_ek22[i, j] = area * ((lamda + 2 * mu) * c[1, i] * c[1, j] + mu * c[0, i] * c[0, j])
-            s_ek21[i, j] = area * (lamda * c[0, j] * c[1, i] + mu * c[1, j] * c[0, i])
-            # dx_e[i, j] = area / 3 * (c[0, j] * Nk[i])
-            # dy_e[i, j] = area / 3 * (c[1, j] * Nk[i])
-
-    return s_ek11, s_ek12, s_ek21, s_ek22, dx_e, dy_e
-
-
-def assemble_stiffness_matrix(nnodes, p, t, lamda, mu):
-    s11 = np.zeros((nnodes, nnodes))
-    s12 = np.zeros((nnodes, nnodes))
-    s21 = np.zeros((nnodes, nnodes))
-    s22 = np.zeros((nnodes, nnodes))
-    dx = np.zeros((nnodes, nnodes))
-    dy = np.zeros((nnodes, nnodes))
-
-    for k in range(len(t[0])):
-        el1 = p[:, t[0, k]]
-        el2 = p[:, t[1, k]]
-        el3 = p[:, t[2, k]]
-        # el = [el1, el2, el3]
-        s_ek11, s_ek12, s_ek21, s_ek22, dx_e, dy_e = generate_stiffness_matrix(el1, el2, el3, lamda, mu)
-
-        for i in range(3):
-            for j in range(3):
-                s11[t[i, k], t[j, k]] = s11[t[i, k], t[j, k]] + s_ek11[i, j]
-                s12[t[i, k], t[j, k]] = s12[t[i, k], t[j, k]] + s_ek12[i, j]
-                s21[t[i, k], t[j, k]] = s21[t[i, k], t[j, k]] + s_ek21[i, j]
-                s22[t[i, k], t[j, k]] = s22[t[i, k], t[j, k]] + s_ek22[i, j]
-                dx[t[i, k], t[j, k]] = dx[t[i, k], t[j, k]] + dx_e[i, j]
-                dy[t[i, k], t[j, k]] = dy[t[i, k], t[j, k]] + dy_e[i, j]
-
-    return s11, s12, s21, s22, dx, dy
-
-
-def generate_element_vector_x(el1, el2, el3, p):
-    X = [el1[0], el2[0], el3[0]]
-    Y = [el1[1], el2[1], el3[1]]
-    area = PolyArea(X, Y)
-    g = np.zeros((3, 1))
-
-    for i in range(3):
-        if X[i] == 1:
-            g[i] = -1
-
-    f_ek = area / 3 * g
-
-    return f_ek
-
-
-def generate_element_vector_y(el1, el2, el3, p):
-    X = [el1[0], el2[0], el3[0]]
-    Y = [el1[1], el2[1], el3[1]]
-    area = PolyArea(X, Y)
-    g = np.zeros((3, 1))
-
-    for i in range(3):
-        if Y[i] == 1:
-            g[i] = -1
-
-    f_ek = area / 3 * g
-
-    return f_ek
-
-
-def assemble_vector_x(nnodes, p, t):
-    f = np.zeros((nnodes, 1))
-
-    for k in range(len(t[0])):
-        el1 = p[:, t[0, k]]
-        el2 = p[:, t[1, k]]
-        el3 = p[:, t[2, k]]
-        f_ek = generate_element_vector_x(el1, el2, el3, p)
-
-        for i in range(3):
-            f[t[i, k]] = f[t[i, k]] + f_ek[i]
-
-    return f
-
-
-def assemble_vector_y(nnodes, p, t):
-    f = np.zeros((nnodes, 1))
-
-    for k in range(len(t[0])):
-        el1 = p[:, t[0, k]]
-        el2 = p[:, t[1, k]]
-        el3 = p[:, t[2, k]]
-        f_ek = generate_element_vector_y(el1, el2, el3, p)
-
-        for i in range(3):
-            f[t[i, k]] = f[t[i, k]] + f_ek[i]
-
-    return f
-
-
-mesh = loadmat('rounded_cave3.mat')
-# mesh = loadmat('R1.mat')
-stif = loadmat('stif.mat')
-
-p = mesh['p']
-e = mesh['e']
-t = mesh['t']
-t = t - 1  # update elements numbering to start with 0
-x = p[0, :]
-y = p[1, :]
-
-# S11 = stif['S11']
-# S12 = stif['S12']
-# S21 = stif['S21']
-# S22 = stif['S22']
-# fxo = stif['fxo']
-# fyo = stif['fyo']
-
-rho = 2980  # rock density
-K = 56.1e9  # Bulk modulus
-mu = 29.1e9  # Shear modulus
-g = 9.81  # gravity constant
-H = 1250  # depth of the middle of the salt layer
-dt = 15  # timestep
-Nt = 50  # number of timesteps
-A = 1e-14  # material constant (Norton Power Law)
-n = 3  # stress exponent (Norton Power Law)
-P = 1  # cavern's pressure
-
-lamda = K - 2 / 3 * mu  # Elastic modulus
-E = mu * (3 * lamda + 2 * mu) / (lamda + mu)  # Young's modulus
-nu = lamda / (2 * (lamda + mu))  # Poisson's ratio
-
-nnodes = p.shape[1]
-bn = np.array([8, 222, 9, 221, 1, 181, 11, 182, 12, 183, 13, 184, 2, 224, 10, 223, 7])  # cavern boundary nodes
-bn = bn - 1
-
-# TODO: add boundary forces
-
-L_bnd, R_bnd, B_bnd, T_bnd = extract_bnd(p, nnodes)
-s11, s12, s21, s22, dx, dy = assemble_stiffness_matrix(nnodes, p, t, lamda, mu)
-fx = assemble_vector_x(nnodes, p, t).reshape(nnodes, )
-# fy = assemble_vector_y(nnodes, p, t).reshape(nnodes, )
-# fx = np.zeros((nnodes, ))
-fy = np.zeros((nnodes,))
-z = np.zeros((nnodes, 2 * nnodes))
-
-# Applying BC
-y_bnd = np.concatenate((B_bnd, T_bnd))
-
-s11[L_bnd, :] = 0
-s11[:, L_bnd] = 0
-s11[L_bnd, L_bnd] = 1
-s21[L_bnd, :] = 0
-s21[:, L_bnd] = 0
-s21[L_bnd, L_bnd] = 1
-# s12[L_bnd, :] = 0
-# s22[L_bnd, :] = 0
-
-s12[y_bnd, :] = 0
-s12[:, y_bnd] = 0
-s12[y_bnd, y_bnd] = 1
-s22[y_bnd, :] = 0
-s22[:, y_bnd] = 0
-s22[y_bnd, y_bnd] = 1
-# s11[y_bnd, :] = 0
-# s21[y_bnd, :] = 0
-
-# fx[L_bnd] = 0
-# fx[y_bnd] = 0
-# fy[L_bnd] = 0
-# fy[y_bnd] = 0
-# fx[R_bnd] = -1
-# fx = fx.reshape(nnodes, )
-# fy = fy.reshape(nnodes, )
-
-# dif_s11 = np.amax(s11 - S11)
-# dif_s12 = np.amax(s12 - S12)
-# dif_s21 = np.amax(s21 - S21)
-# dif_s22 = np.amax(s22 - S22)
-
-# Calculations
-# s1 = s11 + s21
-# s2 = s12 + s22
-# s = np.concatenate((s1, s2), axis=1)
-# f = fx + fy
-# u = np.linalg.solve(s, f)
-
-s1 = np.concatenate((s11, s12), axis=1)
-s2 = np.concatenate((s21, s22), axis=1)
-s1 = np.concatenate((s1, z), axis=0).reshape(2 * nnodes, 2 * nnodes)
-s2 = np.concatenate((s2, z), axis=0).reshape(2 * nnodes, 2 * nnodes)
-fx = np.concatenate((fx, np.zeros((nnodes,))), axis=0).reshape(2 * nnodes, 1)
-fy = np.concatenate((fy, np.zeros((nnodes,))), axis=0).reshape(2 * nnodes, 1)
-# f = np.concatenate((fx, fy), axis=0).reshape(2 * nnodes, 1)
-
-# u = np.linalg.solve(s, f)
-u1 = np.linalg.solve(s1, fx)
-u2 = np.linalg.solve(s2, fy)
-u = u1 + u2
-
-# s1 = [s11, s12]
-# s2 = [s21, s22]
-# s1 = s1.reshape(nnodes, 2 * nnodes)
-# s2 = s2.reshape(nnodes, 2 * nnodes)
-# s = np.column_stack((s1, s2))
-# f = [fx, fy]
-
-# nz11 = np.count_nonzero(s11)
-# nz12 = np.count_nonzero(s12)
-# nz21 = np.count_nonzero(s21)
-# nz22 = np.count_nonzero(s22)
-#
-# t1 = "Number of nonzero values in s11 = {}".format(nz11)
-# t2 = "Number of nonzero values in s12 = {}".format(nz12)
-# t3 = "Number of nonzero values in s21 = {}".format(nz21)
-# t4 = "Number of nonzero values in s22 = {}".format(nz22)
-
-# plt.subplot(221)
-# plt.spy(s11)
-# plt.title(t1)
-# plt.subplot(222)
-# plt.spy(s12)
-# plt.title(t2)
-# plt.subplot(223)
-# plt.spy(s21)
-# plt.title(t3)
-# plt.subplot(224)
-# plt.spy(s22)
-# plt.title(t4)
-# plt.show()
-
-# fig = plt.figure()
-# ax = fig.gca(projection='3d')
-# ax.plot_trisurf(x, y, v, linewidth=0.2, antialiased=True)
-# plt.triplot(x, y)
-# plt.show()
-
-print("done")
+write_results_gif(Nt, p, t, output)
+write_results_xdmf(Nt, m, p, output)
