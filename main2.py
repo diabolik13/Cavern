@@ -1,47 +1,67 @@
-from elasticity import *
+import time
 
+from elasticity import *
+from animate_plot import *
+
+time_start = time.time()
 # Define input parameters and load mesh
-mesh_filename = 'gmsh.msh'  # supported formats: *.mat and *.msh
+mesh_filename = 'new_cave.msh'  # supported formats: *.mat and *.msh
 # rho = 2980  # rock density, [kg/m3]
-rho = 1  # rock density, [kg/m3]
-# K = 56.1e9  # Bulk modulus
-K = 833.333  # Bulk modulus
-# mu = 29.1e9  # Shear modulus
-mu = 384.615  # Shear modulus
-P = 1  # cavern's pressure, [Pa]
-dof = 2  # degrees of freedom
-Nt = 100  # number of time steps
-dt = 10  # time step [s]
+# K = 56.1e9  # Bulk modulus, [Pa]
+# mu = 29.1e9  # Shear modulus, [Pa]
+rho = 2160  # rock density, [kg/m3]
+K = 22e9  # Bulk modulus, [Pa]
+mu = 11e9  # Shear modulus, [Pa]
+P = 5e6  # cavern's pressure, [Pa]
+dof = 2  # degrees of freedom, [-]
+Nt = 25  # number of time steps, [-]
+A = 1e-42  # creep material constant, [Pa]^n
+n = 5  # creep material constant, [-]
+th = 1e3  # thickness of the model, [m]
+w = 1e2  # cavern width (used for cavern boundary force calculation), [m]
+cfl = 1e3  # CFL
+dt = 31536000e-2  # time step, [s]
 
 lamda, E, nu, D = lame(K, mu)  # calculate lame parameters, elasticity tensor etc.
 m, p, t = load_mesh(mesh_filename)  # load mesh data: points and triangles
+nnodes = len(p[0])  # number of nodes (temporary in main script)
 
-# Below are the indices of dof on the domain's boundary,
-# such that L_bnd and R_bnd contain x dof indices and B_bnd
-# and T_bnd contain y dof indices
-L_bnd, R_bnd, B_bnd, T_bnd, D_bnd = extract_bnd(p, dof)
-Px, Py, nind_c = cavern_boundaries(m, p, t, P)
+L_bnd, R_bnd, B_bnd, T_bnd = extract_bnd(p, dof)
+D_bnd = np.concatenate((B_bnd, T_bnd, L_bnd, R_bnd))
+Px, Py, nind_c = cavern_boundaries(m, p, P, w)
 
 # Assembling the linear system of equations: stiffness matrix k and load vector f
-k = assemble_stiffness_matrix(dof, p, t, D)
+k = assemble_stiffness_matrix(dof, p, t, D, th)
 f = assemble_vector(p, t, nind_c, Px, Py)
 
-# check_matrix(k)  # uncomment to spy(k), det(k) and non-zero values
-
-# Impose Dirichlet B.C.
+# check_matrix(k)
 k, f = impose_dirichlet(k, f, D_bnd)
+# check_matrix(k)
 
-# check_matrix(k)  # uncomment to spy(k), det(k) and non-zero values
+# creep modelling
+input = {
+    'time step size': dt,
+    'points': p,
+    'elements': t,
+    'material constant': A,
+    'material exponent': n,
+    'number of timesteps': Nt,
+    'elasticity tensor': D,
+    'shear moduli': mu,
+    'Lame parameter': lamda,
+    'external forces': f,
+    'stiffness matrix': k,
+    'Dirichlet boundaries': D_bnd,
+    'CFL': cfl
+}
 
-# Solve system of linear equations ku = f
-u = np.linalg.solve(k, f)  # nodal displacements vector
+output = calculate_creep(input)
 
-# Postprocessing for stresses and strains evaluation
-straing, stressg = gauss_stress_strain(p, t, u, D)  # stress and strains evaluated at Gaussian points
-# TODO: do a proper extrapolation!
-strain, stress = nodal_stress_strain(p, t, straing, stressg)  # stress and strains extrapolated to nodal points
+elapsed = time.time() - time_start
+print("Simulation is done in {} seconds. Total simulation is {} seconds. "
+      "Maximum displacement is {} m.".format(elapsed, output['elapsed time'][-1], np.max(abs(output['displacement']))))
 
-# Plot results
-plot_results(p, t, u, strain, stress)
-
-print("done")
+# Save results in *.gif format
+animate_plot(Nt, p, t, output)
+# Save results in *.xdmf format for ParaView
+write_plot(Nt, m, p, output)
