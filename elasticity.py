@@ -305,12 +305,12 @@ def load_mesh(mesh_filename):
 
     ext = mesh_filename.split(".")[-1]
     if ext.lower() == 'msh':
-        m = meshio.read(mesh_filename)
+        m = meshio.read('./mesh/' + mesh_filename)
         p = m.points.transpose() * 1e3
         p = np.delete(p, 2, axis=0)
         t = m.cells["triangle"].transpose()
     elif ext.lower() == 'mat':
-        m = loadmat(mesh_filename)
+        m = loadmat('/mesh/' + mesh_filename)
         p = m['p'] * 1e3
         # e = m['e']  # edges data
         t = m['t']

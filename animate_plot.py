@@ -78,7 +78,7 @@ def write_results_gif(nt, p, t, output):
     for k in range(3):
         var = data[k]
         for j in range(len(var)):
-            label = var[j]['title']
+            label = './output/' + var[j]['title']
             units = var[j]['units']
             z = var[j]['value']
 
@@ -183,7 +183,7 @@ def write_results_xdmf(nt, m, p, output):
         }
     }
 
-    with meshio.xdmf.TimeSeriesWriter('output_data.xdmf') as writer:
+    with meshio.xdmf.TimeSeriesWriter('./output/output_data.xdmf') as writer:
         writer.write_points_cells(m.points, m.cells)
         for i in range(nt):
             if i > 0:  # remove the very first frame with linear elastic response only
