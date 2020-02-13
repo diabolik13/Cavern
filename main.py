@@ -53,3 +53,4 @@ print("Simulation is done in {} seconds. Total simulation is {} seconds. "
 
 write_results_gif(Nt, p, t, output)
 write_results_xdmf(Nt, m, p, output)
+
