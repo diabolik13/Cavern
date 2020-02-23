@@ -10,18 +10,19 @@ mesh_filename = 'new_cave.msh'  # supported formats: *.mat and *.msh
 rho = 2160  # rock density, [kg/m3]
 K = 22e9  # Bulk modulus, [Pa]
 mu = 11e9  # Shear modulus, [Pa]
-P = 5e6  # cavern's pressure, [Pa]
+P = 3e6  # cavern's pressure, [Pa]
 dof = 2  # degrees of freedom, [-]
-Nt = 3  # number of time steps, [-]
+Nt = 15  # number of time steps, [-]
 A = 1e-42  # creep material constant, [Pa]^n
 n = 5  # creep material constant, [-]
-th = 1e3  # thickness of the model, [m]
-w = 1e2  # cavern width (used for cavern boundary forces calculation), [m]
-dt = 31536000e-2  # time step, [s]
-cfl = 1e3  # CFL
+th = 1e3  # thickness of the model in z, [m]
+w = 1e2  # cavern width in z, [m]
+dt = 31536000e-6  # time step, [s]
+c = 0  # wave number, number of cycles, [-]
+cfl = 0.5  # CFL
 
-lamda, E, nu, D = lame(K, mu)
 m, p, t = load_mesh(mesh_filename)
+lamda, E, nu, D = lame(K, mu, plane_stress=True)
 L_bnd, R_bnd, B_bnd, T_bnd = extract_bnd(p, dof)
 D_bnd = np.concatenate((B_bnd, T_bnd, L_bnd, R_bnd))
 Px, Py, nind_c = cavern_boundaries(m, p, P, w)
@@ -33,6 +34,7 @@ k, f = impose_dirichlet(k, f, D_bnd)
 input = {
     'time step size': dt,
     'number of timesteps': Nt,
+    'thickness': th,
     'points': p,
     'elements': t,
     'material constant': A,
@@ -43,14 +45,21 @@ input = {
     'external forces': f,
     'stiffness matrix': k,
     'Dirichlet boundaries': D_bnd,
-    'CFL': cfl
+    'CFL': cfl,
+    'wave number': c
 }
 
-output = calculate_creep(input)
+output = calculate_creep(input, m, P, w)
+output_NR = calculate_creep_NR(input, m, P, w)
+diff = np.max(abs(output['displacement']-output_NR['displacement']))
 elapsed = time.time() - time_start
-print("Simulation is done in {} seconds. Total simulation is {} seconds. "
-      "Maximum displacement is {} m.".format(elapsed, output['elapsed time'][-1], np.max(abs(output['displacement']))))
+# print("Simulation is done in {} seconds. Total simulation is {} days. "
+#       "Maximum displacement is {} m, creep displacement is {} m."
+#       .format(float("{0:.2f}".format(elapsed)),
+#               float("{0:.2f}".format((output['elapsed time'][-1] / 86400))),
+#               float("{0:.3f}".format(np.max(abs(output['displacement'])))),
+#               float("{0:.1e}".format(np.max(abs(output['displacement'][:][-1] - output['displacement'][:][0]))))))
 
-write_results_gif(Nt, p, t, output)
-write_results_xdmf(Nt, m, p, output)
-
+# write_results_gif(Nt, p, t, output, 15, '.gif', exaggerate=False)
+# write_results_xdmf(Nt, m, p, output)
+print("Done writing results to output files.")

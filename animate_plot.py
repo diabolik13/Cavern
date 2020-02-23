@@ -16,12 +16,19 @@ def retrieve_name(var):
     return [var_name for var_name, var_val in callers_local_vars if var_val is var]
 
 
-def write_results_gif(nt, p, t, output):
+def write_results_gif(nt, p, t, output, l, ext, exaggerate=False):
     """Saves results in separate files in *.gif format."""
 
     x = p[0, :]  # x-coordinates of nodes
     y = p[1, :]  # y-coordinates of nodes
     nnodes = len(p[0])
+
+    def ex(i):
+        if exaggerate:
+            return np.log(i + 1) * 1e3
+        else:
+            return 2e3
+
     # time_intervals = np.asarray(list(map(int, np.linspace(0, nt - 1, nt))))
     # if nt > 50:
     #     time_intervals = np.asarray(list(map(int, np.linspace(0, nt - 1, 50))))
@@ -72,13 +79,38 @@ def write_results_gif(nt, p, t, output):
                 "units": '[Pa]',
                 "value": output['stress'][2 * nnodes:3 * nnodes]
             }
+        },
+        3: {
+            0: {
+                "title": 'von_mises_stress',
+                "units": '[Pa]',
+                "value": output['Von Mises stress'][:nnodes]
+            }
+        },
+        4: {
+            0: {
+                "title": 'creep_forces_x',
+                "units": '[N]',
+                "value": output['creep forces'][:nnodes]
+            },
+            1: {
+                "title": 'creep_forces_y',
+                "units": '[N]',
+                "value": output['creep forces'][nnodes:]
+            }
         }
     }
 
-    for k in range(3):
+    if nt > 1:
+        iter = len(data)
+    elif nt == 1:
+        iter = len(data) - 1
+
+    for k in range(iter):
         var = data[k]
         for j in range(len(var)):
-            label = './output/' + var[j]['title']
+            folder = './output/'
+            label = var[j]['title']
             units = var[j]['units']
             z = var[j]['value']
 
@@ -93,13 +125,15 @@ def write_results_gif(nt, p, t, output):
                 # fig.tight_layout()
                 ax.set_aspect('equal', 'box')
                 ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
-                xc = x + (i + 1) / (i + 2) * 1000 * data[0][0]['value'][:, i]
-                yc = y + (i + 1) / (i + 2) * 1000 * data[0][1]['value'][:, i]
+                xc = x + ex(i) * data[0][0]['value'][:, i]
+                yc = y + ex(i) * data[0][1]['value'][:, i]
                 triang = mtri.Triangulation(xc, yc, t.transpose())
                 c = ax.tricontourf(triang, z[:, i], 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
-                                   levels=np.linspace(np.min(z), np.max(z), 10))
+                                   levels=np.linspace(np.min(z), np.max(z), l))
                 ax.triplot(triang, color='white', lw=0.1)
-                ax.set_title(label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.')
+                ax.set_title(
+                    label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.'
+                )
                 cbar = plt.colorbar(c, cax=cax, format='%.0e')
                 cbar.set_label(label + ' magnitude ' + units)
                 ax.set_xlabel('x [m]')
@@ -107,14 +141,19 @@ def write_results_gif(nt, p, t, output):
 
             anim = FuncAnimation(
                 fig, animate, interval=100, frames=nt)
-            anim.save(label + '.gif', writer='imagemagick')
+            anim.save(folder + label + ext, writer='imagemagick')
 
 
 def write_results_xdmf(nt, m, p, output):
     """Saves results in one file in *.xdmf format for ParaView."""
 
     nnodes = len(p[0])
-    time = np.round((output['elapsed time'] / 86400), 2)
+
+    if nt > 1:
+        time = np.round((output['elapsed time'] / 86400), 2)
+    elif nt == 1:
+        time = 0
+
     data = {
         0: {
             0: {
@@ -202,31 +241,30 @@ def write_results_xdmf(nt, m, p, output):
                                       data[4][0]['title'] + ', ' + data[4][0]['units']: data[4][0]['value'][:, i]
                                   })
 
-
-def animate_parameter(nt, z, p, t, label):
-    x = p[0, :]  # x-coordinates of nodes
-    y = p[1, :]  # y-coordinates of nodes
-    th = np.asarray(list(map(int, np.linspace(0, nt - 1, nt))))
-    if nt > 50:
-        th = np.asarray(list(map(int, np.linspace(0, nt - 1, 50))))
-
-    img = []
-    triang = mtri.Triangulation(x, y, t.transpose())
-    fig, ax = plt.subplots()
-    ax.set_aspect('equal', 'box')
-    fig.tight_layout()
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    min_z = np.min(z)
-    max_z = np.max(z)
-
-    for i in th:
-        ax.set_title(label + ' in time step = ' + str(i))
-        c = ax.tricontourf(triang, z[:, i], 10, cmap='plasma')
-        c.set_clim(min_z, max_z)
-        plt.colorbar(c, cax=cax)
-        img.append(c.collections)
-
-    name = label + '.gif'
-    anim_img = animation.ArtistAnimation(fig, img, interval=300, blit=True)
-    anim_img.save(name, writer='imagemagick', bitrate=300)
+# def animate_parameter(nt, z, p, t, label):
+#     x = p[0, :]  # x-coordinates of nodes
+#     y = p[1, :]  # y-coordinates of nodes
+#     th = np.asarray(list(map(int, np.linspace(0, nt - 1, nt))))
+#     if nt > 50:
+#         th = np.asarray(list(map(int, np.linspace(0, nt - 1, 50))))
+#
+#     img = []
+#     triang = mtri.Triangulation(x, y, t.transpose())
+#     fig, ax = plt.subplots()
+#     ax.set_aspect('equal', 'box')
+#     fig.tight_layout()
+#     divider = make_axes_locatable(ax)
+#     cax = divider.append_axes("right", size="5%", pad=0.05)
+#     min_z = np.min(z)
+#     max_z = np.max(z)
+#
+#     for i in th:
+#         ax.set_title(label + ' in time step = ' + str(i))
+#         c = ax.tricontourf(triang, z[:, i], 10, cmap='plasma')
+#         c.set_clim(min_z, max_z)
+#         plt.colorbar(c, cax=cax)
+#         img.append(c.collections)
+#
+#     name = label + '.gif'
+#     anim_img = animation.ArtistAnimation(fig, img, interval=300, blit=True)
+#     anim_img.save(name, writer='imagemagick', bitrate=300)
