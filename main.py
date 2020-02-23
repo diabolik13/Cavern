@@ -17,7 +17,7 @@ A = 1e-42  # creep material constant, [Pa]^n
 n = 5  # creep material constant, [-]
 th = 1e3  # thickness of the model in z, [m]
 w = 1e2  # cavern width in z, [m]
-dt = 31536000e-4  # time step, [s]
+dt = 31536000e-5  # time step, [s]
 c = 0  # wave number, number of cycles, [-]
 cfl = 0.5  # CFL
 
@@ -60,6 +60,6 @@ print("Simulation is done in {} seconds. Total simulation is {} days. "
               float("{0:.3f}".format(np.max(abs(output['displacement'])))),
               float("{0:.1e}".format(np.max(abs(output['displacement'][:][-1] - output['displacement'][:][0]))))))
 
-# write_results_gif(Nt, p, t, output_NR, 15, '.gif', exaggerate=False)
+write_results_gif(Nt, p, t, output_NR, 15, '.gif', exaggerate=False)
 # write_results_xdmf(Nt, m, p, output)
 print("Done writing results to output files.")
