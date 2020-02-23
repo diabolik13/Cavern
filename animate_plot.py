@@ -16,8 +16,12 @@ def retrieve_name(var):
     return [var_name for var_name, var_val in callers_local_vars if var_val is var]
 
 
-def write_results_gif(nt, p, t, output, l, ext, exaggerate=False):
+def write_results_gif(input, output, l, ext, exaggerate=False):
     """Saves results in separate files in *.gif format."""
+
+    nt = input['number of timesteps']
+    p = input['points']
+    t = input['elements']
 
     x = p[0, :]  # x-coordinates of nodes
     y = p[1, :]  # y-coordinates of nodes
@@ -144,8 +148,12 @@ def write_results_gif(nt, p, t, output, l, ext, exaggerate=False):
             anim.save(folder + label + ext, writer='imagemagick')
 
 
-def write_results_xdmf(nt, m, p, output):
+def write_results_xdmf(input, output):
     """Saves results in one file in *.xdmf format for ParaView."""
+
+    nt = input['number of timesteps']
+    m = input['mesh data']
+    p = input['points']
 
     nnodes = len(p[0])
 

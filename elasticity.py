@@ -13,6 +13,62 @@ from scipy.io import loadmat
 from mpl_toolkits.mplot3d import Axes3D
 
 
+def load_input(mesh_filename):
+    """Load the input data."""
+
+    rho = 2160  # rock density, [kg/m3]
+    temp = 333  # temperature, [K]
+    q = 125000  # creep activation energy, [cal/mol]
+    r = 1.987  # gas constant, [cal/(mol*K)]
+    kb = 22e9  # Bulk modulus, [Pa]
+    mu = 11e9  # Shear modulus, [Pa]
+    pr = 3e6  # cavern's pressure, [Pa]
+    dof = 2  # degrees of freedom, [-]
+    nt = 5  # number of time steps, [-]
+    a = 1e-42  # creep material constant, [Pa]^n
+    n = 5  # creep material constant, [-]
+    th = 1e3  # thickness of the model in z, [m]
+    w = 1e2  # cavern width in z, [m]
+    dt = 31536000e-4  # time step, [s]
+    c = 0  # wave number, number of cycles, [-]
+    cfl = 0.5  # CFL
+
+    m, p, t = load_mesh(mesh_filename)
+    lamda, e, nu, d = lame(kb, mu, plane_stress=True)
+    l_bnd, r_bnd, b_bnd, t_bnd = extract_bnd(p, dof)
+    d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
+    px, py, nind_c = cavern_boundaries(m, p, pr, w)
+    k = assemble_stiffness_matrix(dof, p, t, d, th)
+    f = assemble_vector(p, t, nind_c, px, py)
+    k, f = impose_dirichlet(k, f, d_bnd)
+
+    input = {
+        'mesh data': m,
+        'time step size': dt,
+        'number of timesteps': nt,
+        'thickness': th,
+        'points': p,
+        'cavern pressure': pr,
+        'cavern width': w,
+        'cavern temperature': temp,
+        'creep activation energy': q,
+        'gas constant': r,
+        'elements': t,
+        'material constant': a,
+        'material exponent': n,
+        'elasticity tensor': d,
+        'shear moduli': mu,
+        'Lame parameter': lamda,
+        'external forces': f,
+        'stiffness matrix': k,
+        'Dirichlet boundaries': d_bnd,
+        'CFL': cfl,
+        'wave number': c
+    }
+
+    return input
+
+
 def lame(k, mu, plane_stress):
     """Calculates lame parameters, elasticity tensor etc."""
 
@@ -441,9 +497,9 @@ def deviatoric_stress(stress):
     return dstress
 
 
-def calculate_creep(input, m, pr, w):
+def calculate_creep(input):
     """Models creep behavior for the given input."""
-    print("Initializing explicit solver.")
+    print("Initializing explicit solver...")
 
     def calculate_timestep():
         dstress = deviatoric_stress(stress)
@@ -468,6 +524,12 @@ def calculate_creep(input, m, pr, w):
 
         return f, sign
 
+    m = input['mesh data']
+    pr = input['cavern pressure']
+    w = input['cavern width']
+    temp = input['cavern temperature']
+    q = input['creep activation energy']
+    r = input['gas constant']
     p = input['points']
     t = input['elements']
     th = input['thickness']
@@ -524,7 +586,7 @@ def calculate_creep(input, m, pr, w):
 
             if sign[0, i] * sign[0, i + 1] > 0:
                 dstressg = deviatoric_stress(stressg)
-                g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg
+                g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
                 strain_crg = strain_crg + g_crg * dt
             else:
                 strain_crg = np.zeros((3, nele))
@@ -671,9 +733,9 @@ def assemble_creep_forces_vector(dof, p, t, d, ecr, th):
     return fcr
 
 
-def calculate_creep_NR(input, m, pr, w):
+def calculate_creep_NR(input):
     """Models creep behavior for the given input."""
-    print("Initializing implicit+NR solver.")
+    print("Initializing implicit+NR solver...")
 
     def calculate_timestep():
         dstress = deviatoric_stress(stress)
@@ -698,6 +760,12 @@ def calculate_creep_NR(input, m, pr, w):
 
         return f, sign
 
+    m = input['mesh data']
+    pr = input['cavern pressure']
+    w = input['cavern width']
+    temp = input['cavern temperature']
+    q = input['creep activation energy']
+    r = input['gas constant']
     p = input['points']
     t = input['elements']
     th = input['thickness']
@@ -748,7 +816,7 @@ def calculate_creep_NR(input, m, pr, w):
         while converged == 0:
             dstressg = deviatoric_stress(stressg)
             svmg = von_mises_stress(stressg)
-            g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg
+            g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
 
             # calculate time step size
             if 'time step size' not in input:
@@ -774,7 +842,7 @@ def calculate_creep_NR(input, m, pr, w):
             _, stress = nodal_stress_strain(p, t, straing, stressg)
             svm = von_mises_stress(stress)
             svmg = von_mises_stress(stressg)
-            g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg
+            g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
             strain_crg = strain_crg_n + g_crg * dt
             f_cr = assemble_creep_forces_vector(2, p, t, d, strain_crg, th)
             f = fo + f_cr  # calculate RHS = creep forces + external load
@@ -785,7 +853,7 @@ def calculate_creep_NR(input, m, pr, w):
             res = np.linalg.norm(residual)
             iter += 1
 
-            if res < 3e-3 or iter > max_iter:
+            if res < 3e-3 or iter >= max_iter:
                 converged = 1
 
             print("Iteration {}, norm(residual) = {}.".format(iter, res))
