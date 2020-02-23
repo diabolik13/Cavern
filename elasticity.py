@@ -18,19 +18,19 @@ def load_input(mesh_filename):
 
     rho = 2160  # rock density, [kg/m3]
     temp = 333  # temperature, [K]
-    q = 125000  # creep activation energy, [cal/mol]
+    q = 35000  # creep activation energy, [cal/mol]
     r = 1.987  # gas constant, [cal/(mol*K)]
     kb = 22e9  # Bulk modulus, [Pa]
     mu = 11e9  # Shear modulus, [Pa]
     pr = 3e6  # cavern's pressure, [Pa]
     dof = 2  # degrees of freedom, [-]
-    nt = 5  # number of time steps, [-]
-    a = 1e-42  # creep material constant, [Pa]^n
+    nt = 35  # number of time steps, [-]
+    a = 1e-20  # creep material constant, [Pa]^n
     n = 5  # creep material constant, [-]
     th = 1e3  # thickness of the model in z, [m]
     w = 1e2  # cavern width in z, [m]
-    dt = 31536000e-4  # time step, [s]
-    c = 0  # wave number, number of cycles, [-]
+    dt = 31536000e-2  # time step, [s]
+    c = 0  # wave number, frequency of loading cycles control, [-]
     cfl = 0.5  # CFL
 
     m, p, t = load_mesh(mesh_filename)
