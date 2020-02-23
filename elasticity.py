@@ -443,6 +443,7 @@ def deviatoric_stress(stress):
 
 def calculate_creep(input, m, pr, w):
     """Models creep behavior for the given input."""
+    print("Initializing explicit solver.")
 
     def calculate_timestep():
         dstress = deviatoric_stress(stress)
@@ -563,6 +564,8 @@ def calculate_creep(input, m, pr, w):
         'elapsed time': et
     }
 
+    print("Done.")
+
     return output
 
 
@@ -670,6 +673,7 @@ def assemble_creep_forces_vector(dof, p, t, d, ecr, th):
 
 def calculate_creep_NR(input, m, pr, w):
     """Models creep behavior for the given input."""
+    print("Initializing implicit+NR solver.")
 
     def calculate_timestep():
         dstress = deviatoric_stress(stress)
@@ -729,8 +733,14 @@ def calculate_creep_NR(input, m, pr, w):
     fo = f
     et = [0]
 
+    # output
+    disp_out[:, 0] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
+    strain_out[:, 0] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
+    stress_out[:, 0] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
+    svm_out[:, 0] = von_mises_stress(stress).transpose()
+
     for i in range(nt - 1):
-        print('Time step {}.'.format(i))
+        print('Time step {}:'.format(i))
         converged = 0
         iter = 0
 
@@ -774,7 +784,7 @@ def calculate_creep_NR(input, m, pr, w):
             res = np.linalg.norm(residual)
             iter += 1
 
-            if res < 1e-3:
+            if res < 3e-3:
                 converged = 1
 
             print("Iteration {}, residual = {}.".format(iter, res))
@@ -795,5 +805,7 @@ def calculate_creep_NR(input, m, pr, w):
         'Von Mises stress': svm_out,
         'elapsed time': et
     }
+
+    print("Done.")
 
     return output
