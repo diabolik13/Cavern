@@ -683,20 +683,20 @@ def calculate_creep_NR(input, m, pr, w):
 
         return dt
 
-    # def calculate_pressure_forces(i, c):
-    #     freq = np.sin(c * np.pi / 180 * i)
-    #     px, py, nind_c = cavern_boundaries(m, p, pr, w)
-    #     if freq < 0:
-    #         sign = -1
-    #         px = -px
-    #         py = -py
-    #     elif freq >= 0:
-    #         sign = 1
-    #         px = px
-    #         py = py
-    #     f = assemble_vector(p, t, nind_c, px, py)
-    #
-    #     return f, sign
+    def calculate_pressure_forces(i, c):
+        freq = np.sin(c * np.pi / 180 * i)
+        px, py, nind_c = cavern_boundaries(m, p, pr, w)
+        if freq < 0:
+            sign = -1
+            px = -px
+            py = -py
+        elif freq >= 0:
+            sign = 1
+            px = px
+            py = py
+        f = assemble_vector(p, t, nind_c, px, py)
+
+        return f, sign
 
     p = input['points']
     t = input['elements']
@@ -787,7 +787,7 @@ def calculate_creep_NR(input, m, pr, w):
             if res < 3e-3:
                 converged = 1
 
-            print("Iteration {}, residual = {}.".format(iter, res))
+            print("Iteration {}, norm(residual) = {}.".format(iter, res))
 
         strain_crg_n = strain_crg
         disp_out[:, i + 1] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
