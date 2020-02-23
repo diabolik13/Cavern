@@ -743,6 +743,7 @@ def calculate_creep_NR(input, m, pr, w):
         print('Time step {}:'.format(i))
         converged = 0
         iter = 0
+        max_iter = 10
 
         while converged == 0:
             dstressg = deviatoric_stress(stressg)
@@ -784,7 +785,7 @@ def calculate_creep_NR(input, m, pr, w):
             res = np.linalg.norm(residual)
             iter += 1
 
-            if res < 3e-3:
+            if res < 3e-3 or iter > max_iter:
                 converged = 1
 
             print("Iteration {}, norm(residual) = {}.".format(iter, res))
