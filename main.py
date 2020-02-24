@@ -47,3 +47,4 @@ print("\n Difference in explicit and implicit results: "
 write_results_gif(input_param, output_NR, 15, '.gif', exaggerate=False)
 write_results_xdmf(input_param, output)
 print()
+
