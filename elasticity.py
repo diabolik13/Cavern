@@ -24,12 +24,12 @@ def load_input(mesh_filename):
     mu = 11e9  # Shear modulus, [Pa]
     pr = 3e6  # cavern's pressure, [Pa]
     dof = 2  # degrees of freedom, [-]
-    nt = 1  # number of time steps, [-]
+    nt = 30  # number of time steps, [-]
     a = 1e-20  # creep material constant, [Pa]^n
     n = 5  # creep material constant, [-]
     th = 1e3  # thickness of the model in z, [m]
     w = 1e2  # cavern width in z, [m]
-    dt = 31536000e-2  # time step, [s]
+    dt = 31536000e-3  # time step, [s]
     c = 0  # wave number, frequency of loading cycles control, [-]
     cfl = 0.5  # CFL
 
@@ -804,7 +804,7 @@ def calculate_creep_NR(input):
 
     if nt > 1:
         for i in range(nt - 1):
-            print('Time step {}:'.format(i))
+            print('Time step {}, dt = {} s:'.format(i, dt))
             converged = 0
             iter = 0
             max_iter = 10
@@ -845,6 +845,8 @@ def calculate_creep_NR(input):
                 res = np.linalg.norm(residual)
                 iter += 1
 
+                if iter == max_iter:
+                    print("Maximum iterations reached.")
                 if res < 3e-3 or iter >= max_iter:
                     converged = 1
 
