@@ -29,7 +29,7 @@ def load_input(mesh_filename):
     n = 5  # creep material constant, [-]
     th = 1e3  # thickness of the model in z, [m]
     w = 1e2  # cavern width in z, [m]
-    dt = 31536000e-2  # time step, [s]
+    dt = 31536000e-3  # time step, [s]
     c = 0  # wave number, frequency of loading cycles control, [-]
     cfl = 0.5  # CFL
 
@@ -541,7 +541,7 @@ def calculate_creep(input):
     # f = input['external forces']
     k = input['stiffness matrix']
     d_bnd = input['Dirichlet boundaries']
-    nt = input['number of timesteps']
+    nt = input['number of time steps']
     cfl = input['CFL']
     c = input['wave number']
     if 'time step size' in input:
@@ -772,7 +772,7 @@ def calculate_creep_NR(input):
     f = input['external forces']
     k = input['stiffness matrix']
     d_bnd = input['Dirichlet boundaries']
-    nt = input['number of timesteps']
+    nt = input['number of time steps']
     cfl = input['CFL']
     # c = input['wave number']
     if 'time step size' in input:
