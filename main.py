@@ -15,9 +15,9 @@ print("Simulation is done in {} seconds. Total simulation time is {} days. "
       .format(float("{0:.2f}".format(elapsed)),
               float("{0:.2f}".format((output['elapsed time'][-1] / 86400))),
               float("{0:.3f}".format(np.max(abs(output['displacement'])))),
-              float("{0:.1e}".format(np.max(abs(output['displacement'][:][-1] - output['displacement'][:][0]))))))
+              float("{0:.1e}".format(np.max(abs(output['displacement'][:, -1] - output['displacement'][:, 0]))))))
 
-write_results_gif(input_param, output, 15, '.gif', exaggerate=False)
+# write_results_gif(input_param, output_NR, 15, '.gif', exaggerate=False)
 # write_results_xdmf(input, output)
 print("Done writing results to output files.")
 print()

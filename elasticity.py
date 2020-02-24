@@ -16,7 +16,7 @@ from mpl_toolkits.mplot3d import Axes3D
 def load_input(mesh_filename):
     """Load the input data."""
 
-    rho = 2160  # rock density, [kg/m3]
+    # rho = 2160  # rock density, [kg/m3]
     temp = 333  # temperature, [K]
     q = 35000  # creep activation energy, [cal/mol]
     r = 1.987  # gas constant, [cal/(mol*K)]
@@ -24,7 +24,7 @@ def load_input(mesh_filename):
     mu = 11e9  # Shear modulus, [Pa]
     pr = 3e6  # cavern's pressure, [Pa]
     dof = 2  # degrees of freedom, [-]
-    nt = 35  # number of time steps, [-]
+    nt = 30  # number of time steps, [-]
     a = 1e-20  # creep material constant, [Pa]^n
     n = 5  # creep material constant, [-]
     th = 1e3  # thickness of the model in z, [m]
@@ -45,7 +45,7 @@ def load_input(mesh_filename):
     input = {
         'mesh data': m,
         'time step size': dt,
-        'number of timesteps': nt,
+        'number of time steps': nt,
         'thickness': th,
         'points': p,
         'cavern pressure': pr,
@@ -504,7 +504,7 @@ def calculate_creep(input):
     def calculate_timestep():
         dstress = deviatoric_stress(stress)
         svm = von_mises_stress(stress)
-        g_cr = 3 / 2 * a * abs(np.power(svm, n - 2)) * svm * dstress
+        g_cr = 3 / 2 * a * abs(np.power(svm, n - 2)) * svm * dstress * np.exp(- q / (r * temp))
         dt = cfl * 0.5 * np.max(abs(strain)) / np.max(abs(g_cr))
 
         return dt
@@ -536,9 +536,9 @@ def calculate_creep(input):
     a = input['material constant']
     n = input['material exponent']
     d = input['elasticity tensor']
-    mu = input['shear moduli']
-    lamda = input['Lame parameter']
-    f = input['external forces']
+    # mu = input['shear moduli']
+    # lamda = input['Lame parameter']
+    # f = input['external forces']
     k = input['stiffness matrix']
     d_bnd = input['Dirichlet boundaries']
     nt = input['number of timesteps']
@@ -574,12 +574,12 @@ def calculate_creep(input):
     stress_out[:, 0] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
     svm_out[:, 0] = von_mises_stress(stress).transpose()
 
-    # calculate time step size
-    if 'time step size' not in input:
-        dt = calculate_timestep()
-
     if nt > 1:
         for i in range(nt - 1):
+            # calculate time step size
+            if 'time step size' not in input:
+                dt = calculate_timestep()
+
             fo, sign[0, i + 1] = calculate_pressure_forces((et[-1] + dt) / 86400, c)
             svm = von_mises_stress(stress)
             svmg = von_mises_stress(stressg)
@@ -597,19 +597,13 @@ def calculate_creep(input):
             u = np.linalg.solve(k, f)
             straing, stressg = gauss_stress_strain(p, t, u, d)
             strain, _ = nodal_stress_strain(p, t, straing, stressg)
-
-            for j in range(nele):
-                stressg[:, [j]] = np.dot(d, (straing[:, [j]] - strain_crg[:, [j]]))
-
+            stressg = np.dot(d, (straing - strain_crg))
             _, stress = nodal_stress_strain(p, t, straing, stressg)
             disp_out[:, i + 1] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
             strain_out[:, i + 1] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
             stress_out[:, i + 1] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
             forces_out[:, i + 1] = np.concatenate((f_cr[0::2].reshape(nnodes, ), f_cr[1::2].reshape(nnodes, )), axis=0)
             svm_out[:, i + 1] = svm.transpose()
-
-            # update time step size
-            # dt = calculate_timestep()
 
             # elapsed time
             et = np.append(et, et[-1] + dt)
@@ -735,12 +729,13 @@ def assemble_creep_forces_vector(dof, p, t, d, ecr, th):
 
 def calculate_creep_NR(input):
     """Models creep behavior for the given input."""
+
     print("Initializing implicit+NR solver...")
 
     def calculate_timestep():
         dstress = deviatoric_stress(stress)
         svm = von_mises_stress(stress)
-        g_cr = 3 / 2 * a * abs(np.power(svm, n - 2)) * svm * dstress
+        g_cr = 3 / 2 * a * abs(np.power(svm, n - 2)) * svm * dstress * np.exp(- q / (r * temp))
         dt = cfl * 0.5 * np.max(abs(strain)) / np.max(abs(g_cr))
 
         return dt
@@ -772,14 +767,14 @@ def calculate_creep_NR(input):
     a = input['material constant']
     n = input['material exponent']
     d = input['elasticity tensor']
-    mu = input['shear moduli']
-    lamda = input['Lame parameter']
+    # mu = input['shear moduli']
+    # lamda = input['Lame parameter']
     f = input['external forces']
     k = input['stiffness matrix']
     d_bnd = input['Dirichlet boundaries']
     nt = input['number of timesteps']
     cfl = input['CFL']
-    c = input['wave number']
+    # c = input['wave number']
     if 'time step size' in input:
         dt = input['time step size']
 
@@ -807,64 +802,61 @@ def calculate_creep_NR(input):
     stress_out[:, 0] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
     svm_out[:, 0] = von_mises_stress(stress).transpose()
 
-    for i in range(nt - 1):
-        print('Time step {}:'.format(i))
-        converged = 0
-        iter = 0
-        max_iter = 10
-
-        while converged == 0:
-            dstressg = deviatoric_stress(stressg)
-            svmg = von_mises_stress(stressg)
-            g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
+    if nt > 1:
+        for i in range(nt - 1):
+            print('Time step {}:'.format(i))
+            converged = 0
+            iter = 0
+            max_iter = 10
 
             # calculate time step size
             if 'time step size' not in input:
                 dt = calculate_timestep()
 
-            strain_crg = strain_crg_n + g_crg * dt
-            f_cr = assemble_creep_forces_vector(2, p, t, d, strain_crg, th)
-            f = fo + f_cr  # calculate RHS = creep forces + external load
-            f[d_bnd] = 0  # impose Dirichlet B.C. on forces vector
+            while converged == 0:
+                dstressg = deviatoric_stress(stressg)
+                svmg = von_mises_stress(stressg)
+                g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
+                strain_crg = strain_crg_n + g_crg * dt
+                f_cr = assemble_creep_forces_vector(2, p, t, d, strain_crg, th)
+                f = fo + f_cr  # calculate RHS = creep forces + external load
+                f[d_bnd] = 0  # impose Dirichlet B.C. on forces vector
 
-            residual = np.dot(k, u) - f
-            delta_u = - np.linalg.solve(k, residual)
+                residual = np.dot(k, u) - f
+                delta_u = - np.linalg.solve(k, residual)
 
-            u = u + delta_u
+                u = u + delta_u
 
-            # update properties
-            straing, stressg = gauss_stress_strain(p, t, u, d)
-            strain, _ = nodal_stress_strain(p, t, straing, stressg)
+                # update properties
+                straing, stressg = gauss_stress_strain(p, t, u, d)
+                strain, _ = nodal_stress_strain(p, t, straing, stressg)
+                stressg = np.dot(d, (straing - strain_crg))
+                _, stress = nodal_stress_strain(p, t, straing, stressg)
+                svm = von_mises_stress(stress)
+                svmg = von_mises_stress(stressg)
+                g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
+                strain_crg = strain_crg_n + g_crg * dt
+                f_cr = assemble_creep_forces_vector(2, p, t, d, strain_crg, th)
+                f = fo + f_cr  # calculate RHS = creep forces + external load
+                f[d_bnd] = 0  # impose Dirichlet B.C. on forces vector
 
-            for j in range(nele):
-                stressg[:, [j]] = np.dot(d, (straing[:, [j]] - strain_crg[:, [j]]))
+                # re-compute residual
+                residual = np.dot(k, u) - f
+                res = np.linalg.norm(residual)
+                iter += 1
 
-            _, stress = nodal_stress_strain(p, t, straing, stressg)
-            svm = von_mises_stress(stress)
-            svmg = von_mises_stress(stressg)
-            g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
-            strain_crg = strain_crg_n + g_crg * dt
-            f_cr = assemble_creep_forces_vector(2, p, t, d, strain_crg, th)
-            f = fo + f_cr  # calculate RHS = creep forces + external load
-            f[d_bnd] = 0  # impose Dirichlet B.C. on forces vector
+                if res < 3e-3 or iter >= max_iter:
+                    converged = 1
 
-            # re-compute residual
-            residual = np.dot(k, u) - f
-            res = np.linalg.norm(residual)
-            iter += 1
+                print("Iteration {}, norm(residual) = {}.".format(iter, res))
 
-            if res < 3e-3 or iter >= max_iter:
-                converged = 1
-
-            print("Iteration {}, norm(residual) = {}.".format(iter, res))
-
-        strain_crg_n = strain_crg
-        disp_out[:, i + 1] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
-        strain_out[:, i + 1] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
-        stress_out[:, i + 1] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
-        forces_out[:, i + 1] = np.concatenate((f_cr[0::2].reshape(nnodes, ), f_cr[1::2].reshape(nnodes, )), axis=0)
-        svm_out[:, i + 1] = svm.transpose()
-        et = np.append(et, et[-1] + dt)
+            strain_crg_n = strain_crg
+            disp_out[:, i + 1] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
+            strain_out[:, i + 1] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
+            stress_out[:, i + 1] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
+            forces_out[:, i + 1] = np.concatenate((f_cr[0::2].reshape(nnodes, ), f_cr[1::2].reshape(nnodes, )), axis=0)
+            svm_out[:, i + 1] = svm.transpose()
+            et = np.append(et, et[-1] + dt)
 
     output = {
         'displacement': disp_out,
