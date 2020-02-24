@@ -19,7 +19,7 @@ def retrieve_name(var):
 def write_results_gif(input, output, l, ext, exaggerate=False):
     """Saves results in separate files in *.gif format."""
 
-    nt = input['number of timesteps']
+    nt = input['number of time steps']
     p = input['points']
     t = input['elements']
 
@@ -146,12 +146,13 @@ def write_results_gif(input, output, l, ext, exaggerate=False):
             anim = FuncAnimation(
                 fig, animate, interval=100, frames=nt)
             anim.save(folder + label + ext, writer='imagemagick')
+    print("Done writing results to *.gif files.")
 
 
 def write_results_xdmf(input, output):
     """Saves results in one file in *.xdmf format for ParaView."""
 
-    nt = input['number of timesteps']
+    nt = input['number of time steps']
     m = input['mesh data']
     p = input['points']
 
@@ -248,6 +249,7 @@ def write_results_xdmf(input, output):
                                       data[3][1]['title'] + ', ' + data[3][1]['units']: data[3][1]['value'][:, i],
                                       data[4][0]['title'] + ', ' + data[4][0]['units']: data[4][0]['value'][:, i]
                                   })
+    print("Done writing results to *.xdmf files.")
 
 # def animate_parameter(nt, z, p, t, label):
 #     x = p[0, :]  # x-coordinates of nodes
