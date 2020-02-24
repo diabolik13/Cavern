@@ -1,0 +1,19 @@
+Initializing explicit solver...
+Done.
+Initializing implicit+NR solver...
+Done.
+
+Explicit simulation is done in 0.79 seconds.
+Implicit simulation is done in 0.3 seconds.
+Total simulation time is 0.0 days.
+
+Maximum displacement is 0.023 m, creep displacement is 0.0 m.
+
+ Difference in explicit and implicit results (maximum absolute value): 
+ Displacement: 7.2e-07 m, 
+ Strain: 2.6e-08, 
+ Stress: 9.5e+02 Pa.
+ 
+Done writing results to *.gif files.
+Done writing results to *.xdmf files.
+
