@@ -24,7 +24,7 @@ def load_input(mesh_filename):
     mu = 11e9  # Shear modulus, [Pa]
     pr = 3e6  # cavern's pressure, [Pa]
     dof = 2  # degrees of freedom, [-]
-    nt = 25  # number of time steps, [-]
+    nt = 15  # number of time steps, [-]
     a = 1e-20  # creep material constant, [Pa]^n
     n = 5  # creep material constant, [-]
     th = 1e3  # thickness of the model in z, [m]
@@ -32,6 +32,8 @@ def load_input(mesh_filename):
     dt = 31536000e-2  # time step, [s]
     c = 0  # wave number, frequency of loading cycles control, [-]
     cfl = 0.5  # CFL
+    conv = 3e-3  # convergence threshold
+    max_iter = 10  # maximum number of NR iterations
 
     m, p, t = load_mesh(mesh_filename)
     lamda, e, nu, d = lame(kb, mu, plane_stress=True)
@@ -63,7 +65,9 @@ def load_input(mesh_filename):
         'stiffness matrix': k,
         'Dirichlet boundaries': d_bnd,
         'CFL': cfl,
-        'wave number': c
+        'wave number': c,
+        'convergence threshold': conv,
+        'number of iterations': max_iter
     }
 
     return input
@@ -775,6 +779,8 @@ def calculate_creep_NR(input):
     nt = input['number of time steps']
     cfl = input['CFL']
     # c = input['wave number']
+    conv = input['convergence threshold']
+    max_iter = input['number of iterations']
     if 'time step size' in input:
         dt = input['time step size']
 
@@ -804,10 +810,9 @@ def calculate_creep_NR(input):
 
     if nt > 1:
         for i in range(nt - 1):
-            print('Time step {}, dt = {} s:'.format(i, dt))
+            print('Time step {}, dt = {} s:'.format(i + 1, dt))
             converged = 0
             iter = 0
-            max_iter = 10
 
             # calculate time step size
             if 'time step size' not in input:
@@ -845,12 +850,11 @@ def calculate_creep_NR(input):
                 res = np.linalg.norm(residual)
                 iter += 1
 
-                if iter == max_iter:
-                    print("Maximum iterations reached.")
-                if res < 3e-3 or iter >= max_iter:
-                    converged = 1
-
                 print("Iteration {}, norm(residual) = {}.".format(iter, res))
+                if iter == max_iter and res >= conv:
+                    print("Maximum iterations reached.")
+                if res < conv or iter >= max_iter:
+                    converged = 1
 
             strain_crg_n = strain_crg
             disp_out[:, i + 1] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
