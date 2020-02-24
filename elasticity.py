@@ -24,7 +24,7 @@ def load_input(mesh_filename):
     mu = 11e9  # Shear modulus, [Pa]
     pr = 3e6  # cavern's pressure, [Pa]
     dof = 2  # degrees of freedom, [-]
-    nt = 30  # number of time steps, [-]
+    nt = 1  # number of time steps, [-]
     a = 1e-20  # creep material constant, [Pa]^n
     n = 5  # creep material constant, [-]
     th = 1e3  # thickness of the model in z, [m]
