@@ -17,15 +17,15 @@ def load_input(mesh_filename):
     """Load the input data."""
 
     # rho = 2160  # rock density, [kg/m3]
-    temp = 333  # temperature, [K]
+    temp = 353  # temperature, [K]
     q = 35000  # creep activation energy, [cal/mol]
     r = 1.987  # gas constant, [cal/(mol*K)]
     kb = 22e9  # Bulk modulus, [Pa]
     mu = 11e9  # Shear modulus, [Pa]
-    pr = 3e6  # cavern's pressure, [Pa]
+    pr = 5e6  # cavern and lithostatic pressure difference, [Pa]
     dof = 2  # degrees of freedom, [-]
-    nt = 15  # number of time steps, [-]
-    a = 1e-20  # creep material constant, [Pa]^n
+    nt = 25  # number of time steps, [-]
+    a = 1e-21  # creep material constant, [Pa]^n
     n = 5  # creep material constant, [-]
     th = 1e3  # thickness of the model in z, [m]
     w = 1e2  # cavern width in z, [m]
@@ -33,7 +33,7 @@ def load_input(mesh_filename):
     c = 0  # wave number, frequency of loading cycles control, [-]
     cfl = 0.5  # CFL
     conv = 3e-3  # convergence threshold
-    max_iter = 10  # maximum number of NR iterations
+    max_iter = 15  # maximum number of NR iterations
 
     m, p, t = load_mesh(mesh_filename)
     lamda, e, nu, d = lame(kb, mu, plane_stress=True)
@@ -723,7 +723,7 @@ def assemble_creep_forces_vector(dof, p, t, d, ecr, th):
         ind = [global_node[0] * 2, global_node[0] * 2 + 1, global_node[1] * 2, global_node[1] * 2 + 1,
                global_node[2] * 2, global_node[2] * 2 + 1]
         b = generate_displacement_strain_matrix(el)
-        fcre = th * area * np.dot(np.transpose(b), np.dot(d, ecr[:, e]))
+        fcre = 0.5 * th * area * np.dot(np.transpose(b), np.dot(d, ecr[:, e]))
 
         for i in range(6):
             fcr[ind[i]] = fcr[ind[i]] + fcre[i]
