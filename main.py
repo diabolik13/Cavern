@@ -4,35 +4,20 @@ from elasticity import *
 from animate_plot import *
 
 
-def set_aspect_ratio_log(plot, aspect_ratio):
-    x_min, x_max = plot.get_xlim()
-    y_min, y_max = plot.get_ylim()
-    return plot.set_aspect(aspect_ratio * ((np.log10(x_max / x_min)) / (np.log10(y_max / y_min))))
-
-
-# class Logger(object):
-#     def __init__(self, filename="Default.log"):
-#         self.terminal = sys.stdout
-#         self.log = open(filename, "a")
-#
-#     def write(self, message):
-#         self.terminal.write(message)
-#         self.log.write(message)
-#
-#     def flush(self):
-#         pass
-
-# sys.stdout = Logger("log.txt")
 time_start = time.time()
 
 nt = 0
 diff_u = []
 diff_strain = []
 diff_stress = []
+# c1 = 0.5
+# c2 = - np.pi / 2
+c1 = 1
+c2 = 0
 
 for i in range(4):
     mesh_filename = 'consist' + str(i + 1) + '.msh'
-    input_param = load_input(mesh_filename)
+    input_param = load_input(mesh_filename, c1, c2)
     f = input_param['external forces']
     k = input_param['stiffness matrix']
     p = input_param['points']
@@ -48,7 +33,6 @@ for i in range(4):
     straing, stressg = gauss_stress_strain(p, t, q, d)
     strain, stress = nodal_stress_strain(p, t, straing, stressg)
     svm = von_mises_stress(stress).reshape((nnodes, 1))
-
     u = np.concatenate((q[::2].reshape(nnodes, 1), q[1::2].reshape(nnodes, 1)), axis=0)
     strain = np.concatenate((strain[0], strain[1], strain[2]), axis=0).reshape((3 * nnodes, 1))
     stress = np.concatenate((stress[0], stress[1], stress[2]), axis=0).reshape((3 * nnodes, 1))
@@ -71,7 +55,7 @@ for i in range(4):
     #     'elapsed time': nt
     # }
 
-    # plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y, t)
+    plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y, t)
 
     diff_u.append(abs(np.max(u - u_anl)))
     diff_strain.append(abs(np.max(strain - strain_anl)))
@@ -82,10 +66,10 @@ for i in range(4):
 
 size = np.array([128, 64, 32, 16])
 order_disp = (np.log(diff_u[0]) - np.log(diff_u[-1])) / (np.log(size[0]) - np.log(size[-1]))
-order_strain = (np.log(diff_strain[1]) - np.log(diff_strain[-1])) / (np.log(size[1]) - np.log(size[-1]))
-order_stress = (np.log(diff_stress[1]) - np.log(diff_stress[-1])) / (np.log(size[1]) - np.log(size[-1]))
+order_strain = (np.log(diff_strain[0]) - np.log(diff_strain[-1])) / (np.log(size[0]) - np.log(size[-1]))
+order_stress = (np.log(diff_stress[0]) - np.log(diff_stress[-1])) / (np.log(size[0]) - np.log(size[-1]))
 
 plot_difference(size, diff_u, diff_strain, diff_stress, order_disp, order_strain, order_stress)
 
 elapsed = time.time() - time_start
-print('Done in {2:.f} seconds.'.format(elapsed))
+print('Done in {:10.2f} seconds.'.format(elapsed))

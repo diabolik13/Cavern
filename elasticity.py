@@ -15,7 +15,7 @@ from scipy.io import loadmat
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def load_input(mesh_filename):
+def load_input(mesh_filename, c1, c2):
     """Load the input data."""
 
     # rho = 2160  # rock density, [kg/m3]
@@ -32,7 +32,7 @@ def load_input(mesh_filename):
     th = 1e3  # thickness of the model in z, [m]
     w = 1e2  # cavern width in z, [m]
     dt = 31536000e-2  # time step, [s]
-    c1 = 0  # wave number, frequency of loading cycles control, [-]
+    c = 0  # wave number, frequency of loading cycles control, [-]
     cfl = 0.5  # CFL
     conv = 3e-3  # convergence threshold
     max_iter = 15  # maximum number of NR iterations
@@ -44,8 +44,8 @@ def load_input(mesh_filename):
     lamda, e, nu, d = lame(kb, mu, plane_stress=True)
 
     xsym, ysym = sp.symbols('xsym ysym')
-    c1 = 0.5
-    c2 = - np.pi / 2
+    # c1 = 0.5
+    # c2 = - np.pi / 2
     # c1 = 1
     # c2 = 0
     # u_x = 1e-5 * sp.sin(np.pi * xsym / 1000) * sp.sin(np.pi * ysym / 1000)
@@ -1143,7 +1143,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
 
 
 def plot_difference(size, diff_u, diff_strain, diff_stress, order_disp, order_strain, order_stress):
-    fig, axs = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'aspect': 1})
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
     axs = axs.flatten()
 
     axs[0].plot(size, diff_u, 'ro-', lw=2)
@@ -1156,21 +1156,27 @@ def plot_difference(size, diff_u, diff_strain, diff_stress, order_disp, order_st
     axs[0].set_xscale('log')
     axs[0].set_yscale('log')
 
-    axs[1].loglog(size, diff_strain, 'ro-', lw=2)
+    axs[1].plot(size, diff_strain, 'ro-', lw=2)
     axs[1].set_title('Consistency of strain solution')
     axs[1].grid(True, which="both")
     axs[1].set_adjustable("datalim")
     axs[1].set_title("slope = {0:.2f}".format(order_strain))
     axs[1].set_xlabel("Element Size", fontsize=14)
     axs[1].set_ylabel("Strain Error", fontsize=14)
+    axs[1].set_xscale('log')
+    axs[1].set_yscale('log')
 
-    axs[2].loglog(size, diff_stress, 'ro-', lw=2)
+    axs[2].plot(size, diff_stress, 'ro-', lw=2)
     axs[2].set_title('Consistency of stress solution')
     axs[2].grid(True, which="both")
     axs[2].set_title("slope = {0:.2f}".format(order_stress))
     axs[2].set_adjustable("datalim")
     axs[2].set_xlabel("Element Size", fontsize=14)
     axs[2].set_ylabel("Stress Error", fontsize=14)
+    axs[2].set_xscale('log')
+    axs[2].set_yscale('log')
 
+    plt.setp(axs, xticks=[10, 100], xticklabels=['10', '100'])
+    fig.tight_layout(pad=1)
     # fig.tight_layout()
     plt.show()
