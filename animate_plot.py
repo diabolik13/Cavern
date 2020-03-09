@@ -129,15 +129,15 @@ def write_results_gif(input, output, l, ext, exaggerate=False):
                 # fig.tight_layout()
                 ax.set_aspect('equal', 'box')
                 ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
-                xc = x + ex(i) * data[0][0]['value'][:, i]
-                yc = y + ex(i) * data[0][1]['value'][:, i]
-                triang = mtri.Triangulation(xc, yc, t.transpose())
+                # xc = x + ex(i) * data[0][0]['value'][:, i]
+                # yc = y + ex(i) * data[0][1]['value'][:, i]
+                triang = mtri.Triangulation(x, y, t.transpose())
                 c = ax.tricontourf(triang, z[:, i], 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                                    levels=np.linspace(np.min(z), np.max(z), l))
                 ax.triplot(triang, color='white', lw=0.1)
-                ax.set_title(
-                    label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.'
-                )
+                # ax.set_title(
+                #     label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.'
+                # )
                 cbar = plt.colorbar(c, cax=cax, format='%.0e')
                 cbar.set_label(label + ' magnitude ' + units)
                 ax.set_xlabel('x [m]')

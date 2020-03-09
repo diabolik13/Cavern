@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
+import sympy as sp
 import meshio
 import sys
 import warnings
@@ -8,6 +9,7 @@ import warnings
 from matplotlib import cm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.io import loadmat
+# from sympy import *
 
 # This import registers the 3D projection, but is otherwise unused.
 from mpl_toolkits.mplot3d import Axes3D
@@ -24,24 +26,79 @@ def load_input(mesh_filename):
     mu = 11e9  # Shear modulus, [Pa]
     pr = 5e6  # cavern and lithostatic pressure difference, [Pa]
     dof = 2  # degrees of freedom, [-]
-    nt = 25  # number of time steps, [-]
+    nt = 1  # number of time steps, [-]
     a = 1e-21  # creep material constant, [Pa]^n
     n = 5  # creep material constant, [-]
     th = 1e3  # thickness of the model in z, [m]
     w = 1e2  # cavern width in z, [m]
     dt = 31536000e-2  # time step, [s]
-    c = 0  # wave number, frequency of loading cycles control, [-]
+    c1 = 0  # wave number, frequency of loading cycles control, [-]
     cfl = 0.5  # CFL
     conv = 3e-3  # convergence threshold
     max_iter = 15  # maximum number of NR iterations
 
     m, p, t = load_mesh(mesh_filename)
+    nnodes = p.shape[1]  # number of nodes
+    x = p[0, :]
+    y = p[1, :]
     lamda, e, nu, d = lame(kb, mu, plane_stress=True)
+
+    xsym, ysym = sp.symbols('xsym ysym')
+    c1 = 0.5
+    c2 = - np.pi / 2
+    # c1 = 1
+    # c2 = 0
+    # u_x = 1e-5 * sp.sin(np.pi * xsym / 1000) * sp.sin(np.pi * ysym / 1000)
+    # u_y = 1e-5 * sp.sin(np.pi * xsym / 1000) * sp.sin(np.pi * ysym / 1000)
+    u_x = 1e-5 * sp.sin(c1 * np.pi * xsym / 1000 + c2) * sp.sin(c1 * np.pi * ysym / 1000 + c2)
+    u_y = 1e-5 * sp.sin(c1 * np.pi * xsym / 1000 + c2) * sp.sin(c1 * np.pi * ysym / 1000 + c2)
+
+    # ux_anl = sp.lambdify([xsym, ysym], u_x, "numpy")(x, y)
+    # uy_anl = sp.lambdify([xsym, ysym], u_y, "numpy")(x, y)
+    dudx = sp.lambdify([xsym, ysym], sp.diff(u_x, xsym), "numpy")(x, y)
+    dvdy = sp.lambdify([xsym, ysym], sp.diff(u_y, ysym), "numpy")(x, y)
+    dudy = sp.lambdify([xsym, ysym], sp.diff(u_x, ysym), "numpy")(x, y)
+    dvdx = sp.lambdify([xsym, ysym], sp.diff(u_y, xsym), "numpy")(x, y)
+    du2dx = sp.lambdify([xsym, ysym], sp.diff(u_x, xsym, 2), "numpy")(x, y)
+    dv2dx = sp.lambdify([xsym, ysym], sp.diff(u_y, xsym, 2), "numpy")(x, y)
+    du2dy = sp.lambdify([xsym, ysym], sp.diff(u_x, ysym, 2), "numpy")(x, y)
+    dv2dy = sp.lambdify([xsym, ysym], sp.diff(u_y, ysym, 2), "numpy")(x, y)
+    du2dxdy = sp.lambdify([xsym, ysym], sp.diff(u_x, xsym, ysym), "numpy")(x, y)
+    dv2dxdy = sp.lambdify([xsym, ysym], sp.diff(u_y, xsym, ysym), "numpy")(x, y)
+
+    if np.isscalar(dudx):
+        dudx = np.zeros((nnodes,))
+    if np.isscalar(dvdy):
+        dvdy = np.zeros((nnodes,))
+    if np.isscalar(dudy):
+        dudy = np.zeros((nnodes,))
+    if np.isscalar(dvdx):
+        dvdx = np.zeros((nnodes,))
+    if np.isscalar(du2dx):
+        du2dx = np.zeros((nnodes,))
+    if np.isscalar(dv2dx):
+        dv2dx = np.zeros((nnodes,))
+    if np.isscalar(du2dy):
+        du2dy = np.zeros((nnodes,))
+    if np.isscalar(dv2dy):
+        dv2dy = np.zeros((nnodes,))
+    if np.isscalar(du2dxdy):
+        du2dxdy = np.zeros((nnodes,))
+    if np.isscalar(dv2dxdy):
+        dv2dxdy = np.zeros((nnodes,))
+
+    strain_anl = np.concatenate((dudx, dvdy, dudy + dvdx), axis=0).reshape((3 * len(p[0]), 1))
+    sx = (lamda + 2 * mu) * dudx + lamda * dvdy
+    sy = (lamda + 2 * mu) * dvdy + lamda * dudx
+    ss = mu * (dudy + dvdx)
+    stress_anl = np.concatenate((sx, sy, ss), axis=0).reshape((3 * len(p[0]), 1))
+
+    fx = -((lamda + 2 * mu) * du2dx + lamda * dv2dxdy + mu * (du2dy + dv2dxdy))
+    fy = -((lamda + 2 * mu) * dv2dy + lamda * du2dxdy + mu * (dv2dx + du2dxdy))
+    f = assemble_vector(p, t, fx, fy, th)
     l_bnd, r_bnd, b_bnd, t_bnd = extract_bnd(p, dof)
     d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
-    px, py, nind_c = cavern_boundaries(m, p, pr, w)
     k = assemble_stiffness_matrix(dof, p, t, d, th)
-    f = assemble_vector(p, t, nind_c, px, py)
     k, f = impose_dirichlet(k, f, d_bnd)
 
     input = {
@@ -65,9 +122,13 @@ def load_input(mesh_filename):
         'stiffness matrix': k,
         'Dirichlet boundaries': d_bnd,
         'CFL': cfl,
-        'wave number': c,
+        'wave number': c1,
         'convergence threshold': conv,
-        'number of iterations': max_iter
+        'number of iterations': max_iter,
+        'ux': u_x,
+        'uy': u_y,
+        'strain_anl': strain_anl,
+        'stress_anl': stress_anl
     }
 
     return input
@@ -110,11 +171,15 @@ def extract_bnd(p, dof):
     for node in range(nnodes):
         if p[0][node] == min(p[0]):
             l_bnd = np.append(l_bnd, node * dof)
+            l_bnd = np.append(l_bnd, node * dof + 1)
         if p[1][node] == min(p[1]):
+            b_bnd = np.append(b_bnd, node * dof)
             b_bnd = np.append(b_bnd, node * dof + 1)
         if p[0][node] == max(p[0]):
             r_bnd = np.append(r_bnd, node * dof)
+            r_bnd = np.append(r_bnd, node * dof + 1)
         if p[1][node] == max(p[1]):
+            t_bnd = np.append(t_bnd, node * dof)
             t_bnd = np.append(t_bnd, node * dof + 1)
 
     # d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
@@ -171,7 +236,7 @@ def assemble_stiffness_matrix(dof, p, t, d, th):
     return k
 
 
-def assemble_vector(p, t, nind_c, px=0, py=0):
+def assemble_vector(p, t, px, py, th):
     nnodes = p.shape[1]  # number of nodes
     nele = len(t[0])  # number of elements
     f = np.zeros((2 * nnodes, 1))
@@ -187,16 +252,15 @@ def assemble_vector(p, t, nind_c, px=0, py=0):
         j = 0
 
         for i in range(3):
-
             # Applying Newman's B.C. on the right edge
             # if x[i] == 1:
             #     fe[j] = -1
             # j = j + 2
 
             # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
-            if node[i] in nind_c:
-                fe[2 * i] = fe[2 * i] + px[np.where(nind_c == node[i])]
-                fe[2 * i + 1] = fe[2 * i + 1] + py[np.where(nind_c == node[i])]
+            # if node[i] in nind_c:
+            fe[2 * i] = fe[2 * i] + th * area / 3 * px[node[i]]
+            fe[2 * i + 1] = fe[2 * i + 1] + th * area / 3 * py[node[i]]
 
         for i in range(6):
             f[ind[i]] = f[ind[i]] + fe[i]
@@ -377,12 +441,12 @@ def load_mesh(mesh_filename):
 
     ext = mesh_filename.split(".")[-1]
     if ext.lower() == 'msh':
-        m = meshio.read('./mesh/' + mesh_filename)
+        m = meshio.read('./mesh/consistency/' + mesh_filename)
         p = m.points.transpose() * 1e3
         p = np.delete(p, 2, axis=0)
         t = m.cells["triangle"].transpose()
     elif ext.lower() == 'mat':
-        m = loadmat('/mesh/' + mesh_filename)
+        m = loadmat('/mesh/consistency/' + mesh_filename)
         p = m['p'] * 1e3
         # e = m['e']  # edges data
         t = m['t']
@@ -876,3 +940,237 @@ def calculate_creep_NR(input):
     print("Done.")
 
     return output
+
+
+def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y, t):
+    fig, ax = plt.subplots(nrows=4, ncols=3)
+
+    z = u[:nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[0, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[0, 0].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[0, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[0, 0].set_title('Num Displacement X')
+
+    z = u[nnodes:2 * nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[1, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[1, 0].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[1, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[1, 0].set_title('Num Displacement Y')
+
+    z = strain[:nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[0, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[0, 1].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[0, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[0, 1].set_title('Num Strain X')
+
+    z = strain[nnodes:2 * nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[1, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[1, 1].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[1, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[1, 1].set_title('Num Strain Y')
+
+    z = stress[:nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[0, 2])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[0, 2].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[0, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[0, 2].set_title('Num Stress X')
+
+    z = stress[nnodes:2 * nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[1, 2])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[1, 2].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[1, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[1, 2].set_title('Num Stress Y')
+
+    z = u_anl[:nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[2, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[2, 0].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[2, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[2, 0].set_title('Anl Displacement X')
+
+    z = u_anl[nnodes:2 * nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[3, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[3, 0].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[3, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[3, 0].set_title('Anl Displacement Y')
+
+    z = strain_anl[:nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[2, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[2, 1].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[2, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[2, 1].set_title('Anl Strain X')
+
+    z = strain_anl[nnodes:2 * nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[3, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[3, 1].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[3, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[3, 1].set_title('Anl Strain Y')
+
+    z = stress_anl[:nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[2, 2])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[2, 2].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[2, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[2, 2].set_title('Anl Stress X')
+
+    z = stress_anl[nnodes:2 * nnodes].reshape((nnodes,))
+    divider = make_axes_locatable(ax[3, 2])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[3, 2].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[3, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[3, 2].set_title('Anl Stress Y')
+
+    fig.tight_layout(pad=0.1)
+
+    # plt.show()
+
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+
+    z = u[:nnodes].reshape((nnodes,)) - u_anl[:nnodes].reshape((nnodes,))
+    z = abs(z)
+    divider = make_axes_locatable(ax[0, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[0, 0].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[0, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[0, 0].set_title('Diff Displacement X')
+
+    z = u[nnodes:2 * nnodes].reshape((nnodes,)) - u_anl[nnodes:2 * nnodes].reshape((nnodes,))
+    z = abs(z)
+    divider = make_axes_locatable(ax[1, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[1, 0].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[1, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[1, 0].set_title('Diff Displacement Y')
+
+    z = strain[:nnodes].reshape((nnodes,)) - strain_anl[:nnodes].reshape((nnodes,))
+    z = abs(z)
+    divider = make_axes_locatable(ax[0, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[0, 1].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[0, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[0, 1].set_title('Diff Strain X')
+
+    z = strain[nnodes:2 * nnodes].reshape((nnodes,)) - strain_anl[nnodes:2 * nnodes].reshape((nnodes,))
+    z = abs(z)
+    divider = make_axes_locatable(ax[1, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[1, 1].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[1, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[1, 1].set_title('Diff Strain Y')
+
+    z = stress[:nnodes].reshape((nnodes,)) - stress_anl[:nnodes].reshape((nnodes,))
+    z = abs(z)
+    divider = make_axes_locatable(ax[0, 2])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[0, 2].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[0, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[0, 2].set_title('Diff Stress X')
+
+    z = stress[nnodes:2 * nnodes].reshape((nnodes,)) - stress_anl[nnodes:2 * nnodes].reshape((nnodes,))
+    z = abs(z)
+    divider = make_axes_locatable(ax[1, 2])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    ax[1, 2].set_aspect('equal', 'box')
+    triang = mtri.Triangulation(x, y, t.transpose())
+    c = ax[1, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                             levels=np.linspace(np.min(z), np.max(z), 30))
+    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    ax[1, 2].set_title('Diff Stress Y')
+
+    fig.tight_layout(pad=0.1)
+    plt.show()
+    plt.close('all')
+
+
+def plot_difference(size, diff_u, diff_strain, diff_stress, order_disp, order_strain, order_stress):
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'aspect': 1})
+    axs = axs.flatten()
+
+    axs[0].plot(size, diff_u, 'ro-', lw=2)
+    axs[0].set_title('Consistency of displacement solution')
+    axs[0].grid(True, which="both")
+    axs[0].set_adjustable("datalim")
+    axs[0].set_title("slope = {0:.2f}".format(order_disp))
+    axs[0].set_xlabel("Element Size", fontsize=14)
+    axs[0].set_ylabel("Displacement Error", fontsize=14)
+    axs[0].set_xscale('log')
+    axs[0].set_yscale('log')
+
+    axs[1].loglog(size, diff_strain, 'ro-', lw=2)
+    axs[1].set_title('Consistency of strain solution')
+    axs[1].grid(True, which="both")
+    axs[1].set_adjustable("datalim")
+    axs[1].set_title("slope = {0:.2f}".format(order_strain))
+    axs[1].set_xlabel("Element Size", fontsize=14)
+    axs[1].set_ylabel("Strain Error", fontsize=14)
+
+    axs[2].loglog(size, diff_stress, 'ro-', lw=2)
+    axs[2].set_title('Consistency of stress solution')
+    axs[2].grid(True, which="both")
+    axs[2].set_title("slope = {0:.2f}".format(order_stress))
+    axs[2].set_adjustable("datalim")
+    axs[2].set_xlabel("Element Size", fontsize=14)
+    axs[2].set_ylabel("Stress Error", fontsize=14)
+
+    # fig.tight_layout()
+    plt.show()
