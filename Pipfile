@@ -6,7 +6,28 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-tkinter = "*"
+requests = "*"
+appdirs = "==1.4.3"
+cftime = "==1.0.4.2"
+decorator = "==4.4.1"
+h5py = "==2.10.0"
+kiwisolver = "==1.1.0"
+lxml = "==4.5.0"
+matplotlib = "==3.1.3"
+meshio = "==3.3.1"
+mpmath = "==1.1.0"
+numpy = "==1.18.0"
+pyparsing = "==2.4.6"
+python-dateutil = "==2.8.1"
+python-varname = "==0.0.3"
+pytools = "==2019.1.1"
+scipy = "==1.4.1"
+six = "==1.13.0"
+sympy = "==1.5.1"
+Cycler = "==0.10.0"
+Mako = "==1.1.0"
+MarkupSafe = "==1.1.1"
+netCDF4 = "==1.5.3"
 
 [requires]
 python_version = "3.8"

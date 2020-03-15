@@ -1,4 +1,5 @@
 import time
+# import tkinter
 
 from elasticity import *
 from animate_plot import *
