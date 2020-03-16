@@ -56,7 +56,7 @@ for i in range(4):
     #     'elapsed time': nt
     # }
 
-    plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y, t)
+    plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y, t, i)
 
     diff_u.append(abs(np.max(u - u_anl)))
     diff_strain.append(abs(np.max(strain - strain_anl)))

@@ -946,7 +946,7 @@ def calculate_creep_NR(input):
     return output
 
 
-def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y, t):
+def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y, t, i):
     fig, ax = plt.subplots(nrows=4, ncols=3)
 
     z = u[:nnodes].reshape((nnodes,))
@@ -1070,6 +1070,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     ax[3, 2].set_title('Anl Stress Y')
 
     fig.tight_layout(pad=0.1)
+    plt.savefig('./results/solution_results_' + str(i) + '.png')
 
     # plt.show()
 
@@ -1142,6 +1143,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     ax[1, 2].set_title('Diff Stress Y')
 
     fig.tight_layout(pad=0.1)
+    plt.savefig('./results/solution_difference_' + str(i) + '.png')
     plt.show()
     plt.close('all')
 
@@ -1183,4 +1185,5 @@ def plot_difference(size, diff_u, diff_strain, diff_stress, order_disp, order_st
     plt.setp(axs, xticks=[10, 100], xticklabels=['10', '100'])
     fig.tight_layout(pad=1)
     # fig.tight_layout()
+    plt.savefig('./results/approx_order.png')
     plt.show()
