@@ -22,14 +22,14 @@ def load_input(mesh_filename):
     r = 1.987  # gas constant, [cal/(mol*K)]
     kb = 22e9  # Bulk modulus, [Pa]
     mu = 11e9  # Shear modulus, [Pa]
-    pr = 5e6  # cavern and lithostatic pressure difference, [Pa]
+    pr = 3e6  # cavern and lithostatic pressure difference, [Pa]
     dof = 2  # degrees of freedom, [-]
     nt = 25  # number of time steps, [-]
     a = 1e-21  # creep material constant, [Pa]^n
     n = 5  # creep material constant, [-]
     th = 1e3  # thickness of the model in z, [m]
     w = 1e2  # cavern width in z, [m]
-    dt = 31536000e-2  # time step, [s]
+    dt = 31536000e-3  # time step, [s]
     c = 0  # wave number, frequency of loading cycles control, [-]
     cfl = 0.5  # CFL
     conv = 3e-3  # convergence threshold
