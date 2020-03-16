@@ -26,9 +26,9 @@ elapsed_1 = time.time() - time_start
 time_implicit = time.time()
 output_NR = calculate_creep_NR(input_param)
 elapsed_2 = time.time() - time_implicit
-# diff_d = np.max(abs(output['displacement'] - output_NR['displacement']))
-# diff_e = np.max(abs(output['strain'] - output_NR['strain']))
-# diff_s = np.max(abs(output['stress'] - output_NR['stress']))
+diff_d = np.max(abs(output['displacement'] - output_NR['displacement']))
+diff_e = np.max(abs(output['strain'] - output_NR['strain']))
+diff_s = np.max(abs(output['stress'] - output_NR['stress']))
 
 print("\nExplicit simulation is done in {} seconds.\n"
       "Implicit simulation is done in {} seconds.\n"
@@ -39,10 +39,10 @@ print("\nExplicit simulation is done in {} seconds.\n"
               float("{0:.2f}".format((output['elapsed time'][-1] / 86400))),
               float("{0:.3f}".format(np.max(abs(output['displacement'])))),
               float("{0:.1e}".format(np.max(abs(output['displacement'][:, -1] - output['displacement'][:, 0]))))))
-# print("\n Difference in explicit and implicit results (maximum absolute value): "
-#       "\n Displacement: {0:.1e} m,".format(diff_d),
-#       "\n Strain: {0:.1e},".format(diff_e),
-#       "\n Stress: {0:.1e} Pa.\n ".format(diff_s))
+print("\n Difference in explicit and implicit results (maximum absolute value): "
+      "\n Displacement: {0:.1e} m,".format(diff_d),
+      "\n Strain: {0:.1e},".format(diff_e),
+      "\n Stress: {0:.1e} Pa.\n ".format(diff_s))
 
 # write_results_gif(input_param, output_NR, 15, '.gif', exaggerate=False)
 # write_results_xdmf(input_param, output)
