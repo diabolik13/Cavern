@@ -44,7 +44,8 @@ print("\n Difference in explicit and implicit results (maximum absolute value): 
       "\n Strain: {0:.1e},".format(diff_e),
       "\n Stress: {0:.1e} Pa.\n ".format(diff_s))
 
-# write_results_gif(input_param, output_NR, 15, '.gif', exaggerate=False)
+write_results(input_param, output, 15, '.png', exaggerate=False)
+# write_results(input_param, output_NR, 15, '.gif', exaggerate=False)
 # write_results_xdmf(input_param, output)
 print()
 

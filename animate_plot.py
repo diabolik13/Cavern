@@ -16,8 +16,8 @@ def retrieve_name(var):
     return [var_name for var_name, var_val in callers_local_vars if var_val is var]
 
 
-def write_results_gif(input, output, l, ext, exaggerate=False):
-    """Saves results in separate files in *.gif format."""
+def write_results(input, output, l, ext, exaggerate=False):
+    """Saves results in separate files in *.gif and *.png formats."""
 
     nt = input['number of time steps']
     p = input['points']
@@ -146,7 +146,7 @@ def write_results_gif(input, output, l, ext, exaggerate=False):
             anim = FuncAnimation(
                 fig, animate, interval=100, frames=nt)
             anim.save(folder + label + ext, writer='imagemagick')
-    print("Done writing results to *.gif files.")
+    print('Done writing results to ' + ext + ' files.')
 
 
 def write_results_xdmf(input, output):
