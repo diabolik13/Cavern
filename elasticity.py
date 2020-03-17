@@ -1,8 +1,4 @@
 import numpy as np
-# import matplotlib
-# matplotlib.use('TkAgg')
-# import matplotlib as mpl
-# mpl.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import sympy as sp

@@ -1,9 +1,7 @@
 import time
-# import tkinter
 
 from elasticity import *
 from animate_plot import *
-
 
 time_start = time.time()
 
