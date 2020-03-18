@@ -146,7 +146,7 @@ def write_results(input, output, l, ext, exaggerate=False):
             anim = FuncAnimation(
                 fig, animate, interval=100, frames=nt)
             anim.save(folder + label + ext, writer='imagemagick')
-    print('Done writing results to ' + ext + ' files.')
+    print('Done writing results to *' + ext + ' files.')
 
 
 def write_results_xdmf(input, output):
@@ -161,7 +161,7 @@ def write_results_xdmf(input, output):
     if nt > 1:
         time = np.round((output['elapsed time'] / 86400), 2)
     elif nt == 1:
-        time = 0
+        time = np.array([0])
 
     data = {
         0: {
@@ -234,21 +234,21 @@ def write_results_xdmf(input, output):
     with meshio.xdmf.TimeSeriesWriter('./output/output_data.xdmf') as writer:
         writer.write_points_cells(m.points, m.cells)
         for i in range(nt):
-            if i > 0:  # remove the very first frame with linear elastic response only
-                writer.write_data(time[i],
-                                  point_data={
-                                      data[0][0]['title'] + ', ' + data[0][0]['units']: data[0][0]['value'][:, i],
-                                      data[0][1]['title'] + ', ' + data[0][1]['units']: data[0][1]['value'][:, i],
-                                      data[1][0]['title'] + ', ' + data[1][0]['units']: data[1][0]['value'][:, i],
-                                      data[1][1]['title'] + ', ' + data[1][1]['units']: data[1][1]['value'][:, i],
-                                      data[1][2]['title'] + ', ' + data[1][2]['units']: data[1][2]['value'][:, i],
-                                      data[2][0]['title'] + ', ' + data[2][0]['units']: data[2][0]['value'][:, i],
-                                      data[2][1]['title'] + ', ' + data[2][1]['units']: data[2][1]['value'][:, i],
-                                      data[2][2]['title'] + ', ' + data[2][2]['units']: data[2][2]['value'][:, i],
-                                      data[3][0]['title'] + ', ' + data[3][0]['units']: data[3][0]['value'][:, i],
-                                      data[3][1]['title'] + ', ' + data[3][1]['units']: data[3][1]['value'][:, i],
-                                      data[4][0]['title'] + ', ' + data[4][0]['units']: data[4][0]['value'][:, i]
-                                  })
+            # if i > 0:  # remove the very first frame with linear elastic response only
+            writer.write_data(time[i],
+                              point_data={
+                                  data[0][0]['title'] + ', ' + data[0][0]['units']: data[0][0]['value'][:, i],
+                                  data[0][1]['title'] + ', ' + data[0][1]['units']: data[0][1]['value'][:, i],
+                                  data[1][0]['title'] + ', ' + data[1][0]['units']: data[1][0]['value'][:, i],
+                                  data[1][1]['title'] + ', ' + data[1][1]['units']: data[1][1]['value'][:, i],
+                                  data[1][2]['title'] + ', ' + data[1][2]['units']: data[1][2]['value'][:, i],
+                                  data[2][0]['title'] + ', ' + data[2][0]['units']: data[2][0]['value'][:, i],
+                                  data[2][1]['title'] + ', ' + data[2][1]['units']: data[2][1]['value'][:, i],
+                                  data[2][2]['title'] + ', ' + data[2][2]['units']: data[2][2]['value'][:, i],
+                                  data[3][0]['title'] + ', ' + data[3][0]['units']: data[3][0]['value'][:, i],
+                                  data[3][1]['title'] + ', ' + data[3][1]['units']: data[3][1]['value'][:, i],
+                                  data[4][0]['title'] + ', ' + data[4][0]['units']: data[4][0]['value'][:, i]
+                              })
     print("Done writing results to *.xdmf files.")
 
 # def animate_parameter(nt, z, p, t, label):
