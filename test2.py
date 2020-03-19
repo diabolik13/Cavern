@@ -46,5 +46,5 @@ dQvpdsigma_xx = np.zeros(1000)
 for i in range(1000):
     dQvpdsigma_xx[i] = dQvpdsigmaxx.subs({I1a: I1[i], J2a: J2[i], J3a: J3[i], sigma_xx: stress_xx[i],
                                           sigma_yy: stress_yy[i], sigma_xy: stress_xy[i]})
-print(dQvpdsigmaxx)
+# print(dQvpdsigmaxx)  # to obtain the result in one direction consumes quite a lot of time!
 print('done')
