@@ -39,6 +39,7 @@ def load_input(mesh_filename):
     lamda, e, nu, d = lame(kb, mu, plane_stress=True)
     l_bnd, r_bnd, b_bnd, t_bnd = extract_bnd(p, dof)
     d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
+
     px, py, nind_c = cavern_boundaries(m, p, pr, w)
     k = assemble_stiffness_matrix(dof, p, t, d, th)
     f = assemble_vector(p, t, nind_c, px, py)
@@ -190,8 +191,8 @@ def assemble_vector(p, t, nind_c, px=0, py=0):
 
             # Applying Newman's B.C. on the right edge
             # if x[i] == 1:
-            #     fe[j] = -1
-            # j = j + 2
+            #    fe[j] = -1
+            #    j = j + 2
 
             # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
             if node[i] in nind_c:

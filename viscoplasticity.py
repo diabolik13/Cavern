@@ -9,19 +9,23 @@ def stress_inv(stressg):
     i1 = -(stressg[0] + stressg[1]) + 3 * 1.8
     i2 = stressg[0] * stressg[1] - np.power(stressg[2], 2)
     j2 = (1 / 3) * np.power(i1, 2) - i2
-    j3 = (2 / 27) * np.power(i1, 3) - (1 / 3) * i1 * i2  # removed I3 as its always zero
+    j3 = (2 / 27) * np.power(i1, 3) - (1 / 3) * i1 * i2
 
     return i1, j2, j3
 
 
-def solve_yield_function(I1, J2, J3, alpha, n, gamma, beta, beta_1, m_v):
-    theta = (1/3) * np.arccos((-np.sqrt(27) * J3) / (2 * np.power(J2, 1.5)))
-    theta_degrees = theta * (180/np.pi)  # Should be between 0 and 60 degrees
+def lode_angle(J2, J3):
+    theta = (1 / 3) * np.arccos((-np.sqrt(27) * J3) / (2 * np.power(J2, 1.5)))
+    theta_degrees = theta * (180 / np.pi)  # Should be between 0 and 60 degrees
+    avg_theta = np.average(theta_degrees)  # in degrees
     if any(i > 60 for i in theta_degrees):
         print('One of the Lode Angles exceeds maximum thresh hold')
     if any(i < 0 for i in theta_degrees):
         print('One of the Lode Angles exceeds minimum thresh hold')
+    return theta, theta_degrees, avg_theta
 
+
+def solve_yield_function(I1, J2, alpha, n, gamma, beta, beta_1, m_v, theta):
     Gvp = np.power(np.exp(beta_1 * I1) - beta * np.cos(3 * theta), m_v)
     Fvp = J2 - (-alpha * np.power(I1, n) + gamma * np.power(I1, 2)) * Gvp  # in MPa
     return Fvp
