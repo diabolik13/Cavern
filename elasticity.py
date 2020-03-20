@@ -42,8 +42,8 @@ def load_input(mesh_filename):
 
     px, py, nind_c = cavern_boundaries(m, p, pr, w)
     k = assemble_stiffness_matrix(dof, p, t, d, th)
-    f = assemble_vector(p, t, nind_c, px, py)
-    k, f = impose_dirichlet(k, f, d_bnd)
+    # f = assemble_vector(p, t, nind_c, px, py)
+    # k, f = impose_dirichlet(k, f, d_bnd)
 
     input = {
         'mesh data': m,
@@ -62,7 +62,7 @@ def load_input(mesh_filename):
         'elasticity tensor': d,
         'shear moduli': mu,
         'Lame parameter': lamda,
-        'external forces': f,
+        # 'external forces': f,
         'stiffness matrix': k,
         'Dirichlet boundaries': d_bnd,
         'CFL': cfl,
@@ -111,11 +111,15 @@ def extract_bnd(p, dof):
     for node in range(nnodes):
         if p[0][node] == min(p[0]):
             l_bnd = np.append(l_bnd, node * dof)
+            l_bnd = np.append(l_bnd, node * dof + 1)
         if p[1][node] == min(p[1]):
+            b_bnd = np.append(b_bnd, node * dof)
             b_bnd = np.append(b_bnd, node * dof + 1)
         if p[0][node] == max(p[0]):
             r_bnd = np.append(r_bnd, node * dof)
+            r_bnd = np.append(r_bnd, node * dof + 1)
         if p[1][node] == max(p[1]):
+            t_bnd = np.append(t_bnd, node * dof)
             t_bnd = np.append(t_bnd, node * dof + 1)
 
     # d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
@@ -172,7 +176,7 @@ def assemble_stiffness_matrix(dof, p, t, d, th):
     return k
 
 
-def assemble_vector(p, t, nind_c, px=0, py=0):
+def assemble_vector(p, t, th, px, py):
     nnodes = p.shape[1]  # number of nodes
     nele = len(t[0])  # number of elements
     f = np.zeros((2 * nnodes, 1))
@@ -188,16 +192,15 @@ def assemble_vector(p, t, nind_c, px=0, py=0):
         j = 0
 
         for i in range(3):
-
             # Applying Newman's B.C. on the right edge
             # if x[i] == 1:
             #    fe[j] = -1
             #    j = j + 2
 
             # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
-            if node[i] in nind_c:
-                fe[2 * i] = fe[2 * i] + px[np.where(nind_c == node[i])]
-                fe[2 * i + 1] = fe[2 * i + 1] + py[np.where(nind_c == node[i])]
+            # if node[i] in nind_c:
+            fe[2 * i] = fe[2 * i] + th * area / 3 * px[node[i]]
+            fe[2 * i + 1] = fe[2 * i + 1] + th * area / 3 * py[node[i]]
 
         for i in range(6):
             f[ind[i]] = f[ind[i]] + fe[i]
@@ -259,8 +262,10 @@ def plot_results(p, t, t1, t2, t3, u=0, strain=0, stress=0):
     x = p[0, :]  # x-coordinates of nodes
     y = p[1, :]  # y-coordinates of nodes
 
-    ux = u[::2].reshape(nnodes, )
-    uy = u[1::2].reshape(nnodes, )
+    # ux = u[::2].reshape(nnodes, )
+    # uy = u[1::2].reshape(nnodes, )
+    ux = u[0].reshape(nnodes, )
+    uy = u[1].reshape(nnodes, )
     strainx = strain[0, :]
     strainy = strain[1, :]
     stressx = stress[0, :]
