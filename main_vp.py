@@ -31,8 +31,8 @@ xsym, ysym = sp.symbols('xsym ysym')
 # c2 = - np.pi / 2
 c1 = 1
 c2 = 0
-u_x = 1e-4 * xsym * sp.sin(c1 * np.pi * xsym / 1000 + c2) * sp.sin(c1 * np.pi * ysym / 1000 + c2)
-u_y = -1e-4 * ysym * sp.sin(c1 * np.pi * xsym / 1000 + c2) * sp.sin(c1 * np.pi * ysym / 1000 + c2)
+u_x = 1e1 * xsym * sp.sin(c1 * np.pi * xsym / 1000 + c2) * sp.sin(c1 * np.pi * ysym / 1000 + c2)
+u_y = -1e1 * ysym * sp.sin(c1 * np.pi * xsym / 1000 + c2) * sp.sin(c1 * np.pi * ysym / 1000 + c2)
 
 # derivatives, rquired to calculate strain, stress and forces analytically
 ux_anl = sp.lambdify([xsym, ysym], u_x, "numpy")(x, y)
@@ -134,7 +134,7 @@ J2_UF_Test = (-alpha * np.power(I1_test, n) + gamma * np.power(I1_test, 2)) * np
 
 fig = pyplot.figure()
 ax = Axes3D(fig)
-ax.scatter(ux_anl, uy_anl, Fvp)
+ax.scatter(fx, fy, Fvp)
 ax.set_xlabel('displacement in X')
 ax.set_ylabel('displacement in Y')
 ax.set_zlabel('Fvp')
