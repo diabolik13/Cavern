@@ -952,7 +952,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[0, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[0, 0].set_title('Num Displacement X')
 
     z = u[nnodes:2 * nnodes].reshape((nnodes,))
@@ -962,7 +962,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[1, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[1, 0].set_title('Num Displacement Y')
 
     z = strain[:nnodes].reshape((nnodes,))
@@ -972,7 +972,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[0, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[0, 1].set_title('Num Strain X')
 
     z = strain[nnodes:2 * nnodes].reshape((nnodes,))
@@ -982,7 +982,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[1, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[1, 1].set_title('Num Strain Y')
 
     z = stress[:nnodes].reshape((nnodes,))
@@ -992,7 +992,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[0, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[0, 2].set_title('Num Stress X')
 
     z = stress[nnodes:2 * nnodes].reshape((nnodes,))
@@ -1002,7 +1002,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[1, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[1, 2].set_title('Num Stress Y')
 
     z = u_anl[:nnodes].reshape((nnodes,))
@@ -1012,7 +1012,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[2, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[2, 0].set_title('Anl Displacement X')
 
     z = u_anl[nnodes:2 * nnodes].reshape((nnodes,))
@@ -1022,7 +1022,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[3, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[3, 0].set_title('Anl Displacement Y')
 
     z = strain_anl[:nnodes].reshape((nnodes,))
@@ -1032,7 +1032,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[2, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[2, 1].set_title('Anl Strain X')
 
     z = strain_anl[nnodes:2 * nnodes].reshape((nnodes,))
@@ -1042,7 +1042,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[3, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[3, 1].set_title('Anl Strain Y')
 
     z = stress_anl[:nnodes].reshape((nnodes,))
@@ -1052,7 +1052,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[2, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[2, 2].set_title('Anl Stress X')
 
     z = stress_anl[nnodes:2 * nnodes].reshape((nnodes,))
@@ -1062,7 +1062,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[3, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[3, 2].set_title('Anl Stress Y')
 
     fig.tight_layout(pad=0.1)
@@ -1080,7 +1080,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[0, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[0, 0].set_title('Diff Displacement X')
 
     z = u[nnodes:2 * nnodes].reshape((nnodes,)) - u_anl[nnodes:2 * nnodes].reshape((nnodes,))
@@ -1091,7 +1091,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[1, 0].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[1, 0].set_title('Diff Displacement Y')
 
     z = strain[:nnodes].reshape((nnodes,)) - strain_anl[:nnodes].reshape((nnodes,))
@@ -1102,7 +1102,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[0, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[0, 1].set_title('Diff Strain X')
 
     z = strain[nnodes:2 * nnodes].reshape((nnodes,)) - strain_anl[nnodes:2 * nnodes].reshape((nnodes,))
@@ -1113,7 +1113,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[1, 1].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[1, 1].set_title('Diff Strain Y')
 
     z = stress[:nnodes].reshape((nnodes,)) - stress_anl[:nnodes].reshape((nnodes,))
@@ -1124,7 +1124,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[0, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[0, 2].set_title('Diff Stress X')
 
     z = stress[nnodes:2 * nnodes].reshape((nnodes,)) - stress_anl[nnodes:2 * nnodes].reshape((nnodes,))
@@ -1135,7 +1135,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
     triang = mtri.Triangulation(x, y, t.transpose())
     c = ax[1, 2].tricontourf(triang, z, 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                              levels=np.linspace(np.min(z), np.max(z), 30))
-    cbar = plt.colorbar(c, cax=cax, format='%.0e')
+    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 5))
     ax[1, 2].set_title('Diff Stress Y')
 
     fig.tight_layout(pad=0.1)
