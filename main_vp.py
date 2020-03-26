@@ -55,7 +55,7 @@ pyplt.plot(I1, np.sqrt(J2_UF), '-o')
 pyplt.xlabel('I1 (MPa)')
 pyplt.ylabel('sqrt(J2) (MPa)')
 pyplt.title('Fvp evaluation at each nodal point')
-# pyplt.show()
+pyplt.show()
 
 pyplt.figure(2)
 pyplt.plot(I1, np.sqrt(J2), 'o')
@@ -63,7 +63,7 @@ pyplt.plot(I1_test, np.sqrt(J2_UF_Test), '-o')
 pyplt.xlabel('I1 (MPa)')
 pyplt.ylabel('sqrt(J2) (MPa)')
 pyplt.title('Viscoplastic yield function with theta = 60 degrees')
-# pyplt.show()
+pyplt.show()
 
 # Derivatives of potential function with respect to stresses:
 dQvpdsigmaxx, dQvpdsigmayy, dQvpdsigmaxy = potential_function_chain(alpha_q, n, gamma, beta_1, beta, m_v, I1, J2, J3,
