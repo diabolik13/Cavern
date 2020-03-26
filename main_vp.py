@@ -96,6 +96,4 @@ while iter < max_iter and converged == 0:
     if res < epsilon or iter >= max_iter:
         converged = 1
     print('Iteration {}'.format(iter))
-
-# TODO residual function (res) plot it with respect to different parameters
 print('Done')
