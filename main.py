@@ -44,7 +44,8 @@ print("\nExplicit simulation is done in {} seconds.\n"
 #       "\n Strain: {0:.1e},".format(diff_e),
 #       "\n Stress: {0:.1e} Pa.\n ".format(diff_s))
 
-# write_results(input_param, output, 15, '.gif', exaggerate=False)
+# write_results(input_param, output, 15, '.png', exaggerate=True)
 # write_results_xdmf(input_param, output)
-print()
+save_plot(input_param, output, 228)
+print('Done in ' + str(time.time() - time_start) + ' seconds.')
 
