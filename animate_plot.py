@@ -135,14 +135,19 @@ def write_results(input, output, l, ext, exaggerate=False):
                 triang = mtri.Triangulation(xc, yc, t.transpose())
                 c = ax.tricontourf(triang, z[:, i], 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                                    levels=np.linspace(np.min(z), np.max(z), l))
+                ax.locator_params(axis='both', nbins=3)
+                ax.tick_params(axis='both', which='major', labelsize=16)
+                ax.tick_params(axis='both', which='minor', labelsize=12)
                 ax.triplot(triang, color='white', lw=0.1)
                 ax.set_title(
-                    label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.'
-                )
-                cbar = plt.colorbar(c, cax=cax, format='%.0e')
-                cbar.set_label(label + ' magnitude ' + units)
-                ax.set_xlabel('x [m]')
-                ax.set_ylabel('y [m]')
+                    label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.\n',
+                    fontsize=16)
+                cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
+                cbar.set_label(label + ' magnitude ' + units, fontsize=16)
+                cbar.ax.tick_params(labelsize=16)
+                ax.set_xlabel('x [m]', fontsize=16)
+                ax.set_ylabel('y [m]', fontsize=16)
+                ax.ticklabel_format(useMathText=True)
 
             anim = FuncAnimation(
                 fig, animate, interval=100, frames=nt)
@@ -355,8 +360,8 @@ def save_plot(input, output, node):
             # fig.tight_layout()
             fig = plt.figure(figsize=(8, 6))
             ax = fig.add_axes([0.15, 0.1, 0.8, 0.8])
-            ax.cla()
-            plt.cla()
+            # ax.cla()
+            # plt.cla()
             # ax.set_aspect('equal', 'box')
             # ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
 
@@ -371,6 +376,7 @@ def save_plot(input, output, node):
             ax.set_xlabel('elapsed time, [days]', fontsize=16)
             ax.set_ylabel(label + ', ' + units, fontsize=16)
             plt.savefig(folder + label + '_A.png')
+            plt.close('all')
             # plt.show()
 
     print('Done writing results to the output files.')
