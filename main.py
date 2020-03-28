@@ -17,6 +17,24 @@ class Logger(object):
         pass
 
 
+# fig, ax = plt.subplots()
+# divider = make_axes_locatable(ax)
+# cax = divider.append_axes("right", size="5%", pad=0.05)
+# ax.set_aspect('equal', 'box')
+# ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
+# triang = mtri.Triangulation(xc, yc, t.transpose())
+# c = ax.tricontourf(triang, z[:, i], 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+#                    levels=np.linspace(np.min(z), np.max(z), l))
+# ax.locator_params(axis='both', nbins=3)
+# ax.triplot(triang, color='white', lw=0.1)
+# cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
+# cbar.set_label('label', fontsize=16)
+# cbar.ax.ticklabel_format(useMathText=True)
+# ax.set_xlabel('x [m]', fontsize=16)
+# ax.set_ylabel('y [m]', fontsize=16)
+# ax.ticklabel_format(useMathText=True)
+
+
 sys.stdout = Logger("log.txt")
 time_start = time.time()
 mesh_filename = 'new_cave.msh'  # supported formats: *.mat and *.msh
@@ -44,8 +62,7 @@ print("\nExplicit simulation is done in {} seconds.\n"
 #       "\n Strain: {0:.1e},".format(diff_e),
 #       "\n Stress: {0:.1e} Pa.\n ".format(diff_s))
 
-write_results(input_param, output, 15, '.png', exaggerate=True)
+write_results(input_param, output, 15, '.gif', exaggerate=True)
 # write_results_xdmf(input_param, output)
 # save_plot(input_param, output, 228)
 print('Done in ' + str(time.time() - time_start) + ' seconds.')
-

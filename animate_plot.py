@@ -145,6 +145,7 @@ def write_results(input, output, l, ext, exaggerate=False):
                 cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
                 cbar.set_label(label + ' magnitude ' + units, fontsize=16)
                 cbar.ax.tick_params(labelsize=16)
+                # cbar.ax.ticklabel_format(useMathText=True)
                 ax.set_xlabel('x [m]', fontsize=16)
                 ax.set_ylabel('y [m]', fontsize=16)
                 ax.ticklabel_format(useMathText=True)
