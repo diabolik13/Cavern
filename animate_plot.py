@@ -119,7 +119,9 @@ def write_results(input, output, l, ext, exaggerate=False):
             units = var[j]['units']
             z = var[j]['value']
 
-            fig, ax = plt.subplots()
+            # fig, ax = plt.subplots()
+            fig = plt.figure(figsize=(11, 9))
+            ax = fig.add_axes([0.15, 0.15, 0.7, 0.7])
             # fig.tight_layout()
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -136,23 +138,28 @@ def write_results(input, output, l, ext, exaggerate=False):
                 c = ax.tricontourf(triang, z[:, i], 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
                                    levels=np.linspace(np.min(z), np.max(z), l))
                 ax.locator_params(axis='both', nbins=3)
-                ax.tick_params(axis='both', which='major', labelsize=16)
-                ax.tick_params(axis='both', which='minor', labelsize=12)
+                ax.tick_params(axis='both', which='major', labelsize=30)
+                ax.tick_params(axis='both', which='minor', labelsize=16)
                 ax.triplot(triang, color='white', lw=0.1)
                 ax.set_title(
                     label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.\n',
-                    fontsize=16)
+                    fontsize=30)
                 cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
-                cbar.set_label(label + ' magnitude ' + units, fontsize=16)
-                cbar.ax.tick_params(labelsize=16)
+                cbar.set_label(label + ' magnitude ' + units, fontsize=30)
+                cbar.ax.tick_params(labelsize=30)
                 # cbar.ax.ticklabel_format(useMathText=True)
-                ax.set_xlabel('x [m]', fontsize=16)
-                ax.set_ylabel('y [m]', fontsize=16)
+                ax.set_xlabel('x [m]', fontsize=30)
+                ax.set_ylabel('y [m]', fontsize=30)
                 ax.ticklabel_format(useMathText=True)
 
-            anim = FuncAnimation(
-                fig, animate, interval=100, frames=nt)
-            anim.save(folder + label + ext, writer='imagemagick')
+            if nt < 20:
+                anim = FuncAnimation(
+                    fig, animate, interval=100, frames=nt)
+                anim.save(folder + label + ext, writer='imagemagick')
+            else:
+                anim = FuncAnimation(
+                    fig, animate, interval=100, frames=20)
+                anim.save(folder + label + ext, writer='imagemagick')
     print('Done writing results to *' + ext + ' files.')
 
 
@@ -352,19 +359,21 @@ def save_plot(input, output, node):
     for k in range(iter):
         var = data[k]
         for j in range(len(var)):
-            folder = './output/'
+            folder = './output/A/'
             label = var[j]['title']
             units = var[j]['units']
             z = var[j]['value']
 
             # fig, ax = plt.subplots(constrained_layout=True)
             # fig.tight_layout()
-            fig = plt.figure(figsize=(8, 6))
-            ax = fig.add_axes([0.15, 0.1, 0.8, 0.8])
+            fig = plt.figure(figsize=(7, 5))
+            ax = fig.add_axes([0.2, 0.15, 0.7, 0.7])
             # ax.cla()
             # plt.cla()
             # ax.set_aspect('equal', 'box')
-            # ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
+            ax.set(xlim=(np.min(output['elapsed time']) / 86400,
+                         np.max(output['elapsed time']) / 86400))
+            # ylim=(np.min(z[node]), np.max(z[node])))
 
             ax.plot(output['elapsed time'] / 86400, z[node], 'ro-')
             # yfmt = ScalarFormatterForceFormat()
@@ -373,6 +382,9 @@ def save_plot(input, output, node):
             # ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:.2e}'))
             ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
             ax.ticklabel_format(useMathText=True)
+            ax.tick_params(axis='both', which='major', labelsize=16)
+            ax.tick_params(axis='both', which='minor', labelsize=12)
+            ax.locator_params(axis='both', nbins=5)
             ax.grid(True)
             ax.set_xlabel('elapsed time, [days]', fontsize=16)
             ax.set_ylabel(label + ', ' + units, fontsize=16)
@@ -498,8 +510,8 @@ def save_plot2(input, output, node):
             ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
             ax.ticklabel_format(useMathText=True)
             ax.grid(True)
-            ax.set_xlabel('elapsed time, [days]', fontsize=16)
-            ax.set_ylabel(label + ', ' + units, fontsize=16)
+            ax.set_xlabel('elapsed time, [days]', fontsize=20)
+            ax.set_ylabel(label + ', ' + units, fontsize=20)
             plt.savefig(folder + label + '_vs_disp.png')
             # plt.show()
 
