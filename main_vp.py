@@ -88,12 +88,20 @@ uy_num = u[1::2]
 u = np.concatenate((ux_num, uy_num), axis=1).transpose()
 
 u_anl = np.concatenate((ux_anl.reshape(nnodes, 1), uy_anl.reshape(nnodes, 1)), axis=1).transpose()
+u_anl2 = np.zeros((2*nnodes, ))
+u_anl2[::2] = u_anl[0]
+u_anl2[1::2] = u_anl[1]
+u_anl2 = u_anl2.reshape(2*nnodes, 1)
+straing2, stressg2 = gauss_stress_strain(p, t, u_anl2, d)
+strain2, stress2 = nodal_stress_strain(p, t, straing2, stressg2)
+
 strain_anl = np.concatenate((dudx.reshape(nnodes, 1), dvdy.reshape(nnodes, 1), (dudy + dvdx).reshape(nnodes, 1)),
                             axis=1).transpose()
 stress_anl = np.concatenate((sx.reshape(nnodes, 1), sy.reshape(nnodes, 1), ss.reshape(nnodes, 1)), axis=1).transpose()
 
-plot_results(p, t, 'disp', 'strain', 'stress', abs(u_anl - u), abs(strain_anl - strain), abs(stress_anl - stress))
-plot_results(p, t, 'disp', 'strain', 'stress', u, strain, stress)
+plot_results(p, t, 'disp', 'strain', 'stress', abs(u_anl - u), abs(strain_anl - strain2), abs(stress_anl - stress2))
+plot_results(p, t, 'disp', 'strain', 'stress', u, strain2, stress2)
+plot_results(p, t, 'disp_Anl', 'strain_Anl', 'stress_Anl', u_anl, strain_anl, stress_anl)
 print('Maximum absolute value of dispacement is ' + str(abs(np.max(u))) + ' meters.')
 
 # Convert stresses from Pa to MPa
