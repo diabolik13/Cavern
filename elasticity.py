@@ -95,7 +95,7 @@ def load_input(mesh_filename, c1, c2):
 
     fx = -((lamda + 2 * mu) * du2dx + lamda * dv2dxdy + mu * (du2dy + dv2dxdy))
     fy = -((lamda + 2 * mu) * dv2dy + lamda * du2dxdy + mu * (dv2dx + du2dxdy))
-    f = assemble_vector(p, t, fx, fy, th)
+    f = assemble_vector(p, t, fx, fy, th, simple=False)
     l_bnd, r_bnd, b_bnd, t_bnd = extract_bnd(p, dof)
     d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
     k = assemble_stiffness_matrix(dof, p, t, d, th)
@@ -171,15 +171,15 @@ def extract_bnd(p, dof):
     for node in range(nnodes):
         if p[0][node] == min(p[0]):
             l_bnd = np.append(l_bnd, node * dof)
-            l_bnd = np.append(l_bnd, node * dof + 1)
+            # l_bnd = np.append(l_bnd, node * dof + 1)
         if p[1][node] == min(p[1]):
-            b_bnd = np.append(b_bnd, node * dof)
+            # b_bnd = np.append(b_bnd, node * dof)
             b_bnd = np.append(b_bnd, node * dof + 1)
         if p[0][node] == max(p[0]):
             r_bnd = np.append(r_bnd, node * dof)
-            r_bnd = np.append(r_bnd, node * dof + 1)
+            # r_bnd = np.append(r_bnd, node * dof + 1)
         if p[1][node] == max(p[1]):
-            t_bnd = np.append(t_bnd, node * dof)
+            # t_bnd = np.append(t_bnd, node * dof)
             t_bnd = np.append(t_bnd, node * dof + 1)
 
     # d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
@@ -236,7 +236,7 @@ def assemble_stiffness_matrix(dof, p, t, d, th):
     return k
 
 
-def assemble_vector(p, t, px, py, th):
+def assemble_vector(p, t, px, py, th, simple):
     nnodes = p.shape[1]  # number of nodes
     nele = len(t[0])  # number of elements
     f = np.zeros((2 * nnodes, 1))
@@ -252,18 +252,20 @@ def assemble_vector(p, t, px, py, th):
         j = 0
 
         for i in range(3):
-            # Applying Newman's B.C. on the right edge
-            # if x[i] == 1:
-            #     fe[j] = -1
-            # j = j + 2
-
-            # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
-            # if node[i] in nind_c:
-            fe[2 * i] = fe[2 * i] + th * area / 3 * px[node[i]]
-            fe[2 * i + 1] = fe[2 * i + 1] + th * area / 3 * py[node[i]]
+            if simple:
+                # Applying Newman's B.C. on the right edge
+                if x[i] == 1000:
+                    fe[j] = -1
+                j = j + 2
+            else:
+                # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
+                # if node[i] in nind_c:
+                fe[2 * i] = fe[2 * i] + th * area / 3 * px[node[i]]
+                fe[2 * i + 1] = fe[2 * i + 1] + th * area / 3 * py[node[i]]
 
         for i in range(6):
-            f[ind[i]] = f[ind[i]] + fe[i]
+            f[ind[i]] = fe[i]
+            # f[ind[i]] = f[ind[i]] + fe[i]
 
     return f
 
@@ -395,6 +397,84 @@ def plot_results(p, t, t1, t2, t3, u=0, strain=0, stress=0):
     plt.show()
 
 
+def plot_results2(p, t, t1, t2, t3, u=0, strain=0, stress=0):
+    nnodes = p.shape[1]  # number of nodes
+    x = p[0, :]  # x-coordinates of nodes
+    y = p[1, :]  # y-coordinates of nodes
+
+    ux = u[::2].reshape(nnodes, )
+    uy = u[1::2].reshape(nnodes, )
+    strainx = strain[0, :]
+    strainy = strain[1, :]
+    stressx = stress[0, :]
+    stressy = stress[1, :]
+
+    # Plot the triangulation.
+    triang = mtri.Triangulation(x, y, t.transpose())
+
+    # Set up the figure
+    fig, axs = plt.subplots(nrows=2, ncols=3)
+    # axs = axs.flatten()
+    n = 50
+    lw = 0.2
+
+    im = axs[0, 0].tricontourf(triang, ux, n, cmap='plasma')
+    axs[0, 0].triplot(triang, lw=lw)
+    axs[0, 0].set_title(t1 + ' in X')
+    axs[0, 0].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[0, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+
+    im = axs[1, 0].tricontourf(triang, uy, n, cmap='plasma')
+    axs[1, 0].triplot(triang, lw=lw)
+    axs[1, 0].set_title(t1 + ' in Y')
+    axs[1, 0].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[1, 0])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+
+    im = axs[0, 1].tricontourf(triang, strainx, n, cmap='plasma')
+    axs[0, 1].triplot(triang, lw=lw)
+    axs[0, 1].set_title(t2 + ' in X')
+    axs[0, 1].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[0, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+
+    im = axs[1, 1].tricontourf(triang, strainy, n, cmap='plasma')
+    axs[1, 1].triplot(triang, lw=lw)
+    axs[1, 1].set_title(t2 + ' in Y')
+    axs[1, 1].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[1, 1])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+
+    im = axs[0, 2].tricontourf(triang, stressx, n, cmap='plasma')
+    axs[0, 2].triplot(triang, lw=lw)
+    axs[0, 2].set_title(t3 + ' in X')
+    axs[0, 2].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[0, 2])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+
+    im = axs[1, 2].tricontourf(triang, stressy, n, cmap='plasma')
+    axs[1, 2].triplot(triang, lw=lw)
+    axs[1, 2].set_title(t3 + ' in Y')
+    axs[1, 2].set_aspect('equal', 'box')
+    fig.tight_layout()
+    divider = make_axes_locatable(axs[1, 2])
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(im, cax=cax)
+
+    plt.show()
+
+
 def plot_parameter(p, t, f):
     # nnodes = p.shape[1]  # number of nodes
     f = f.reshape((len(p[0]),))
@@ -441,12 +521,12 @@ def load_mesh(mesh_filename):
 
     ext = mesh_filename.split(".")[-1]
     if ext.lower() == 'msh':
-        m = meshio.read('./mesh/consistency/' + mesh_filename)
+        m = meshio.read(mesh_filename)
         p = m.points.transpose() * 1e3
         p = np.delete(p, 2, axis=0)
         t = m.cells["triangle"].transpose()
     elif ext.lower() == 'mat':
-        m = loadmat('/mesh/consistency/' + mesh_filename)
+        m = loadmat(mesh_filename)
         p = m['p'] * 1e3
         # e = m['e']  # edges data
         t = m['t']

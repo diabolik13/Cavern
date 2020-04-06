@@ -13,9 +13,10 @@ diff_stress = []
 # c2 = - np.pi / 2
 c1 = 1
 c2 = 0
+folder = './mesh/consistency/'
 
 for i in range(4):
-    mesh_filename = 'consist' + str(i + 1) + '.msh'
+    mesh_filename = folder + 'consist' + str(i + 1) + '.msh'
     input_param = load_input(mesh_filename, c1, c2)
     f = input_param['external forces']
     k = input_param['stiffness matrix']
