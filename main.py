@@ -17,24 +17,6 @@ class Logger(object):
         pass
 
 
-# fig, ax = plt.subplots()
-# divider = make_axes_locatable(ax)
-# cax = divider.append_axes("right", size="5%", pad=0.05)
-# ax.set_aspect('equal', 'box')
-# ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
-# triang = mtri.Triangulation(xc, yc, t.transpose())
-# c = ax.tricontourf(triang, z[:, i], 10, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
-#                    levels=np.linspace(np.min(z), np.max(z), l))
-# ax.locator_params(axis='both', nbins=3)
-# ax.triplot(triang, color='white', lw=0.1)
-# cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
-# cbar.set_label('label', fontsize=16)
-# cbar.ax.ticklabel_format(useMathText=True)
-# ax.set_xlabel('x [m]', fontsize=16)
-# ax.set_ylabel('y [m]', fontsize=16)
-# ax.ticklabel_format(useMathText=True)
-
-
 sys.stdout = Logger("log.txt")
 time_start = time.time()
 mesh_filename = 'new_cave.msh'  # supported formats: *.mat and *.msh
@@ -42,7 +24,7 @@ input_param = load_input(mesh_filename)
 output = calculate_creep(input_param)
 elapsed_1 = time.time() - time_start
 time_implicit = time.time()
-# output_NR = calculate_creep_NR(input_param)
+output_NR = calculate_creep_NR(input_param)
 elapsed_2 = time.time() - time_implicit
 # diff_d = np.max(abs(output['displacement'] - output_NR['displacement']))
 # diff_e = np.max(abs(output['strain'] - output_NR['strain']))
