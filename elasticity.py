@@ -271,7 +271,7 @@ def plot_results(p, t, t1, t2, t3, u=0, strain=0, stress=0):
     # Set up the figure
     fig, axs = plt.subplots(nrows=2, ncols=3)
     # axs = axs.flatten()
-    n = 10
+    n = 15
     lw = 0.2
 
     im = axs[0, 0].tricontourf(triang, ux, n, cmap='plasma')
