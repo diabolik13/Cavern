@@ -250,6 +250,7 @@ def assemble_vector(p, t, px, py, th, simple):
         ind = [node[0] * 2, node[0] * 2 + 1, node[1] * 2, node[1] * 2 + 1, node[2] * 2, node[2] * 2 + 1]
         fe = np.zeros(6)
         j = 0
+        jy = 1
 
         for i in range(3):
             if simple:
@@ -257,6 +258,10 @@ def assemble_vector(p, t, px, py, th, simple):
                 if x[i] == 1000:
                     fe[j] = -1
                 j = j + 2
+                # Applying Newman's B.C. on the top edge
+                if y[i] == 1000:
+                    fe[jy] = -1
+                jy = jy + 2
             else:
                 # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
                 # if node[i] in nind_c:

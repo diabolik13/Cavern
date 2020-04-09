@@ -20,7 +20,7 @@ y = p[1, :]
 
 f = assemble_vector(p, t, 0, 0, 1000, simple=True)
 l_bnd, r_bnd, b_bnd, t_bnd = extract_bnd(p, 2)
-d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd))
+d_bnd = np.concatenate((b_bnd, l_bnd))
 k = assemble_stiffness_matrix(2, p, t, d, 1000)
 k, f = impose_dirichlet(k, f, d_bnd)
 
