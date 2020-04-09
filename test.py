@@ -1,4 +1,3 @@
-import numpy as np
 from classeslib import *
 from elasticity import *
 
@@ -14,7 +13,6 @@ w = 1e2  # cavern's width, [m]
 pr = 3e6  # difference between cavern's and lithostatic pressure, [Pa]
 
 mesh = Mesh('./mesh/heterogen.msh')
-# d = el_tenzor(mu, kb)
 sfns = Shapefns()
 V = FunctionSpace(mesh, sfns, mu, kb)
 k = V.stiff_matrix(th)
@@ -24,7 +22,6 @@ d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
 k, f = impose_dirichlet(k, f, d_bnd)
 
 u = np.linalg.solve(k, f)
-# straing, stressg = gauss_stress_strain(mesh.coordinates(), mesh.cells(), u, d)
 straing, stressg = V.gauss_stress_strain(mesh, u)
 strain, stress = nodal_stress_strain(mesh.coordinates(), mesh.cells(), straing, stressg)
 

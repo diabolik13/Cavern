@@ -8,7 +8,9 @@ def polyarea(coord):
 
 
 def el_tenzor(mu, k):
-    lamda = k - 2 / 3 * mu  # Elastic modulus
+    # Elastic modulus
+    lamda = k - 2 / 3 * mu
+    # Elasticity tenzor
     d = np.array([[lamda + 2 * mu, lamda, 0],
                   [lamda, lamda + 2 * mu, 0],
                   [0, 0, mu]])
@@ -163,7 +165,6 @@ class FiniteElement(object):
         eltno=this element number, needs to be in mesh
         dofnos=numbers of this element's dofs (numDofs-sized array)
     endpts(): cell end points
-    dofpts(): all dof locations
     dofnos(): all dof values
     numDofs(): number of dofs
     eval(n,x): phi[n](x)  (x, not xi)
@@ -174,7 +175,6 @@ class FiniteElement(object):
     '''
 
     def __init__(self, mesh, sfns, eltno, mu, kb):
-        # TODO: endpts and dofpts are the same!
         '''
         mesh is the mesh it is built on
         sfns is the Shapefuns member
@@ -184,16 +184,26 @@ class FiniteElement(object):
         dofnos is an array of ints giving the numbers of the dofs
         '''
         assert (0 <= eltno < mesh.Nele())
+        # element number
         self.__eltno = eltno
+        # node numbers of the element
         self.__endnos = mesh.cells(eltno)
+        # check that triangular elements are used (3 nodes)
         assert (len(self.__endnos) == 3)
+        # nodal x, y coordinates
         self.__endpts = np.array(mesh.coordinates(self.__endnos))
+        # number of degree of freedom (6)
         self.__numDofs = 2 * sfns.size()
-        dof = mesh.cells(eltno)
-        self.__dofnos = np.array([2 * dof[0], 2 * dof[0] + 1, 2 * dof[1], 2 * dof[1] + 1, 2 * dof[2], 2 * dof[2] + 1])
-        self.__dofpts = self.__endpts
+        # degrees of freedom indexes of the element
+        self.__dofnos = np.array(
+            [2 * self.__endnos[0], 2 * self.__endnos[0] + 1,
+             2 * self.__endnos[1], 2 * self.__endnos[1] + 1,
+             2 * self.__endnos[2], 2 * self.__endnos[2] + 1])
+        # shape functions
         self.__sfns = sfns
+        # area of the element
         self.__area = polyarea(mesh.coordinates(self.__endnos))
+        # elasticity tenzor of the element
         self.__D = el_tenzor(mu[mesh.cell_ph_group(eltno) - 1], kb[mesh.cell_ph_group(eltno) - 1])
 
     def eltno(self):
@@ -259,7 +269,6 @@ class FunctionSpace(object):
     FunctionSpace(mesh,sfns): constructor, sfns is ShapeFuns
     size(): number of elements
     ndofs(): number of all dofs
-    dofpts(n=None): coordinates of dof[n] or all dofs
     int_phi_phi(c=None,derivative=[False,False]):
         integral(c*phi*phi) or
         integral(c*dphi*phi) or
@@ -276,11 +285,12 @@ class FunctionSpace(object):
         mesh is the mesh
         sfns is the Shapefuns
         '''
+        # number of elements
         self.__size = mesh.Nele()
+        # number of degrees of freedom
         self.__nDOFs = mesh.Ndofs()
-        # number the elements in same way as mesh
+        # list of all elements
         self.__elts = list([])
-        self.__dofpts = list([])
         for n in range(self.__size):
             fe = FiniteElement(mesh, sfns, n, mu, kb)
             self.__elts.append(fe)
@@ -311,21 +321,10 @@ class FunctionSpace(object):
         nDofs = self.__nDOFs
         k = np.zeros((nDofs, nDofs))
         for elt in self.__elts:
-            # D = el_tenzor(mu, kb)
             D = elt.el_tenz()
             B = self.strain_disp_matrix(elt.eltno())
-            # B = np.zeros((3, 2))
             ind = elt.dofnos()
             area = elt.area()
-            # invj = np.linalg.inv(elt.jacobi())
-            # for i in range(3):
-            #     dNl = elt.derivative(i)
-            #     dN = np.dot(invj, dNl)
-            #     Bi = np.array([[dN[0], 0],
-            #                    [0, dN[1]],
-            #                    [dN[1], dN[0]]])
-            #     B = np.append(B, Bi, axis=1)
-            # B = np.delete(B, [0, 1], axis=1)
             ke = th * area * np.dot(B.transpose(), (np.dot(D, B)))
             ixgrid = np.ix_(ind, ind)
             k[ixgrid] += ke
@@ -333,8 +332,8 @@ class FunctionSpace(object):
 
     def load_vector(self, mesh, pr, w):
         '''
-            assemble load vector
-            :return:
+        assemble load vector
+        :return:
         '''
 
         def cavern_boundaries(pr, w):
@@ -342,12 +341,10 @@ class FunctionSpace(object):
             Calculate nodal forces on the domain's boundaries.
             '''
 
-            x = p[0]  # x-coordinates of nodes
-            y = p[1]  # y-coordinates of nodes
             nind_c = np.array([], dtype='i')  # cavern nodes indexes
 
             for i in range(len(node_ind)):
-                if ph_group[i] == 4:
+                if ph_group[i] == 4:  # Cavern's wall nodes group
                     nind_c = np.append(nind_c, node_ind[i, :])
 
             nind_c = np.unique(nind_c)
@@ -387,22 +384,17 @@ class FunctionSpace(object):
 
             return px, py, nind_c
 
-        p = mesh.coordinates()
-        t = mesh.cells()
+        x, y = mesh.coordinates()  # nodal coordinates
         nnodes = mesh.Nnodes()  # number of nodes
-        nele = mesh.Nele()  # number of elements
         ph_group = mesh.group()  # physical group of a line
-        node_ind = mesh.edges()  # nodes indexes of the edge
+        node_ind = mesh.edges()  # nodes indexes of an element's edge
         f = np.zeros((2 * nnodes, 1))
         px, py, nind_c = cavern_boundaries(pr, w)
 
-        for k in range(nele):
-            el = np.array([p[:, t[0, k]], p[:, t[1, k]], p[:, t[2, k]]])
-            x = np.array(el[:, 0])
-            y = np.array(el[:, 1])
-            area = polyarea(p)
-            node = np.array([t[0, k], t[1, k], t[2, k]])
-            ind = [node[0] * 2, node[0] * 2 + 1, node[1] * 2, node[1] * 2 + 1, node[2] * 2, node[2] * 2 + 1]
+        for elt in self.__elts:
+            x, y = mesh.coordinates()
+            node = elt.nodes()
+            ind = elt.dofnos()
             fe = np.zeros(6)
             j = 0
 
@@ -418,24 +410,19 @@ class FunctionSpace(object):
                     fe[2 * i] = fe[2 * i] + px[np.where(nind_c == node[i])]
                     fe[2 * i + 1] = fe[2 * i + 1] + py[np.where(nind_c == node[i])]
 
-            for i in range(6):
-                f[ind[i]] = f[ind[i]] + fe[i]
+            f[ind] += fe.reshape((6, 1))
 
         return f
 
     def gauss_stress_strain(self, mesh, u):
-        """Stress and strains evaluated at Gaussian points."""
-        p = mesh.coordinates()
-        t = mesh.cells()
+        '''
+        Stress and strains evaluated at Gaussian points.
+        '''
         nele = mesh.Nele()
         strain = np.zeros((3, nele))
         stress = np.zeros((3, nele))
         for elt in self.__elts:
-            # el = np.array([p[:, t[0, k]], p[:, t[1, k]], p[:, t[2, k]]])
-            el = elt.endpts()
-            # node = np.array([t[0, k], t[1, k], t[2, k]])
             node = elt.nodes()
-            # b = generate_displacement_strain_matrix(el)
             B = self.strain_disp_matrix(elt.eltno())
             q = np.array([u[node[0] * 2], u[node[0] * 2 + 1],
                           u[node[1] * 2], u[node[1] * 2 + 1],
