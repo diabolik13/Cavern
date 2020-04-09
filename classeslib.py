@@ -7,6 +7,14 @@ def polyarea(coord):
     return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
 
 
+def el_tenzor(mu, k):
+    lamda = k - 2 / 3 * mu  # Elastic modulus
+    d = np.array([[lamda + 2 * mu, lamda, 0],
+                  [lamda, lamda + 2 * mu, 0],
+                  [0, 0, mu]])
+    return d
+
+
 class Mesh(object):
     '''
     A mesh is a list of point global coordinates
@@ -25,23 +33,33 @@ class Mesh(object):
         '''
         m = meshio.read(filename)
 
-        #  Coordinates.
+        #  Coordinates
         self.__nodes = m.points * 1e3
         self.__nodes = np.delete(self.__nodes, 2, axis=1)
         self.__nodes = self.__nodes.transpose()
 
-        #  Elements.
+        #  Elements
         self.__cells = m.cells["triangle"].transpose()
         self.__N = len(self.__cells[0])
 
-        #  Nodes.
-        self.__Ndofs = len(m.points) * 2
+        #  Nodes and dofs
+        self.__Nnodes = len(m.points)
+        self.__Ndofs = self.__Nnodes * 2
+
+        #  Physical groups
+        self.__group = m.cell_data['line']['gmsh:physical']
+
+        #  Edges
+        self.__edges = m.cells['line']
 
     def size(self):
         return self.__N
 
     def Ndofs(self):
         return self.__Ndofs
+
+    def Nnodes(self):
+        return self.__Nnodes
 
     def coordinates(self, n=None):
 
@@ -56,6 +74,20 @@ class Mesh(object):
             return self.__cells[:, n]
         else:
             return self.__cells
+
+    def group(self, n=None):
+
+        if not (n is None):
+            return self.__group[n]
+        else:
+            return self.__group
+
+    def edges(self, n=None):
+
+        if not (n is None):
+            return self.__edges[n]
+        else:
+            return self.__edges
 
 
 class Shapefns(object):
@@ -73,11 +105,11 @@ class Shapefns(object):
         '''
         an array of functions for phi and deriv phi
         '''
-
+        # linear shape functions
         self.__phi = [lambda xi, tau: xi,
                       lambda xi, tau: tau,
                       lambda xi, tau: 1 - xi - tau]
-        # and dphidxi, dphidtau (derivative of phi w.r.t. xi and tau)
+        # and derivatives of phi w.r.t. xi and tau
         self.__dphidxi = [1, 0, -1]
         self.__dphidtau = [0, 1, -1]
         self.__N = 3  # number of nodes in element
@@ -136,27 +168,17 @@ class FiniteElement(object):
             in the mesh
         dofnos is an array of ints giving the numbers of the dofs
         '''
-        # this element no. is same as mesh element no.
         assert (0 <= eltno < mesh.size())
         self.__eltno = eltno
         endnos = mesh.cells(eltno)
         assert (len(endnos) == 3)
         self.__endpts = np.array(mesh.coordinates(endnos))
         self.__numDofs = 2 * sfns.size()
-        # assert (sfns.size() == len(dofnos))
-        self.__dofnos = mesh.cells(eltno)
+        dof = mesh.cells(eltno)
+        self.__dofnos = np.array([2 * dof[0], 2 * dof[0] + 1, 2 * dof[1], 2 * dof[1] + 1, 2 * dof[2], 2 * dof[2] + 1])
         self.__dofpts = self.__endpts
         self.__sfns = sfns
         self.__area = polyarea(mesh.coordinates(endnos))
-        #
-        # Gauss points and weights: 3-pts are high enough for this
-        #
-        # self.__gausspts = np.array([1 / 3, 1 / 3])
-        # self.__gausswts = np.array([1])
-
-        # self.__gaussvals = np.empty([self.__numDofs, self.__gausspts.size])
-        # for n in range(self.__numDofs):
-        #     self.__gaussvals[n, :] = sfns.eval(n, self.__gausspts[:])
 
     def endpts(self):
         ''' access endpoints '''
@@ -178,16 +200,6 @@ class FiniteElement(object):
         ''' access numDofs '''
         return self.__numDofs
 
-    # def eval(self, n, x):
-    #     '''
-    #     evaluate the n-th shape function on this element
-    #     at the spatial coordinate x
-    #     '''
-    #     # map x to xi
-    #     xx = np.array(x)
-    #     xi = (xx - self.__endpts[0]) / (self.__endpts[1] - self.__endpts[0])
-    #     # evaluate
-    #     return self.__sfns.eval(n, xi) * (xi >= 0.) * (xi <= 1.)
     def jacobi(self):
         '''calculate J to perform local to global coordinates transformation'''
         x, y = self.__endpts
@@ -204,10 +216,6 @@ class FiniteElement(object):
 
         return j
 
-    def bmatrix(self):
-        '''calculate the strain displacement matrix'''
-        ddx, ddy = np.linalg.solve()
-
     def derivative(self, n):
         '''
         evaluate the n-th shape function on this element
@@ -215,85 +223,6 @@ class FiniteElement(object):
         '''
 
         return np.array([self.__sfns.ddxi(n), self.__sfns.ddtau(n)])
-
-    def integral(self, f1=None, f2=None, derivative=False):
-        '''
-        Integrate either phi[i](xi)*f1(xi)*f2(xi) or dphi[i]*f1*f2
-        over this element, depending on if derivative is False or True
-        Returns a vector of 3 results, one for
-        phi[0], one for phi[1], and one for phi[2].
-        f1 and f2 are assumed to have been mapped to this element
-          as arrays
-        if derivative is True, phi is replaced with dphi
-        '''
-        A = self.__area  # area of element
-        t = self.__gausswts.copy()
-        gp = self.__gausspts
-
-        # if not (f1 is None):
-        #     assert (len(f1) == self.__numDofs)
-        #     fvals = np.zeros([self.__gausspts.size])
-        #     for n in range(self.__numDofs):
-        #         fvals += f1[n] * self.__gaussvals[n, :]
-        #     t *= fvals
-        #
-        # if not (f2 is None):
-        #     assert (len(f2) == self.__numDofs)
-        #     fvals = np.zeros([self.__gausspts.size])
-        #     for n in range(self.__numDofs):
-        #         fvals += f2[n] * self.__gaussvals[n, :]
-        #     t *= fvals
-
-        # def derivative:
-        #     # really: t *= L*(1/L)
-        #     dxi = np.dot(np.array([self.__sfns.ddxi(0, gp), \
-        #                            self.__sfns.ddxi(1, gp), \
-        #                            self.__sfns.ddxi(2, gp)]), t)
-        #
-        #     dtau = np.dot(np.array([self.__sfns.ddx(0, gp), \
-        #                             self.__sfns.ddx(1, gp), \
-        #                             self.__sfns.ddx(2, gp)]), t)
-
-    # def integral(self, f1=None, f2=None, derivative=False):
-    #     '''
-    #     Integrate either phi[i](xi)*f1(xi)*f2(xi) or dphi[i]*f1*f2
-    #     over this element, depending on if derivative is False or True
-    #     Returns a vector of 3 results, one for
-    #     phi[0], one for phi[1], and one for phi[2].
-    #     f1 and f2 are assumed to have been mapped to this element
-    #       as arrays
-    #     if derivative is True, phi is replaced with dphi
-    #     '''
-    #     L = self.__endpts[1] - self.__endpts[0]  # length of element
-    #     t = self.__gausswts.copy()
-    #     gp = self.__gausspts
-    #
-    #     if not (f1 is None):
-    #         assert (len(f1) == self.__numDofs)
-    #         fvals = np.zeros([self.__gausspts.size])
-    #         for n in range(self.__numDofs):
-    #             fvals += f1[n] * self.__gaussvals[n, :]
-    #         t *= fvals
-    #
-    #     if not (f2 is None):
-    #         assert (len(f2) == self.__numDofs)
-    #         fvals = np.zeros([self.__gausspts.size])
-    #         for n in range(self.__numDofs):
-    #             fvals += f2[n] * self.__gaussvals[n, :]
-    #         t *= fvals
-    #
-    #     if derivative:
-    #         # really: t *= L*(1/L)
-    #         q = np.dot(np.array([self.__sfns.ddx(0, gp), \
-    #                              self.__sfns.ddx(1, gp), \
-    #                              self.__sfns.ddx(2, gp)]), t)
-    #     else:
-    #         t *= L  # correct for affine map x->xi
-    #         q = np.dot(np.array([self.__sfns.eval(0, gp), \
-    #                              self.__sfns.eval(1, gp), \
-    #                              self.__sfns.eval(2, gp)]), t)
-    #
-    #     return q
 
 
 class FunctionSpace(object):
@@ -326,19 +255,8 @@ class FunctionSpace(object):
         self.__elts = list([])
         self.__dofpts = list([])
         for n in range(self.__size):
-            # ASSUMING only boundary points are number 0 and (self.__size)
-            # if n == 0:
-            #     dofs = [2 * n, 2 * n + 1, 2 * n + 2]
-            #     newdofs = range(3)
-            # else:
-            #     self.__nDOFs += 2
-            #     dofs = [2 * n, 2 * n + 1, 2 * n + 2]
-            #     newdofs = range(1, 3)
             fe = FiniteElement(mesh, sfns, n)
             self.__elts.append(fe)
-            # for i in newdofs:
-            #     self.__dofpts.append(fe.dofpts()[i])
-        # self.__dofpts = np.array(self.__dofpts)
 
     def size(self):
         return len(self.__elts)
@@ -346,48 +264,121 @@ class FunctionSpace(object):
     def Ndofs(self):
         return self.__nDOFs
 
-    # def dofpts(self, n=None):
-    #     if (n is None):
-    #         return self.__dofpts
-    #     else:
-    #         return self.__dofpts[n]
-
-    def int_phi_phi(self, c=None, derivative=[False, False]):
+    def stiff_matrix(self, mu, kb, th):
         '''
-        assemble $\int c(x)\phi(x)\phi(x) dx$ or with $d\phi/dx$
+        assemble stiffness matrix
+        :return:
         '''
-        A = np.zeros([self.__nDOFs, self.__nDOFs])
-        # loop over elements
+        D = el_tenzor(mu, kb)
+        nDofs = self.__nDOFs
+        k = np.zeros((nDofs, nDofs))
         for elt in self.__elts:
-            d0 = elt.dofnos()
-            if not (c is None):
-                cc = c[d0]
-            else:
-                cc = None
-            N = elt.numDofs()
-            endpts = elt.endpts()
-            Area = elt.area()  # area of elt
-            for j in range(N):
-                if derivative[1]:
-                    # chain rule: d(xi)/d(x) = 1/L
-                    phi = elt.ddx(j, elt.dofpts()) / Area
-                else:
-                    phi = elt.eval(j, elt.dofpts())
-                A[d0, d0[j]] += elt.integral(phi, cc, derivative=derivative[0])
-        return A
+            B = np.zeros((3, 2))
+            ind = elt.dofnos()
+            area = elt.area()
+            invj = np.linalg.inv(elt.jacobi())
+            for i in range(3):
+                dNl = elt.derivative(i)
+                dN = np.dot(invj, dNl)
+                Bi = np.array([[dN[0], 0],
+                               [0, dN[1]],
+                               [dN[1], dN[0]]])
+                B = np.append(B, Bi, axis=1)
+            B = np.delete(B, [0, 1], axis=1)
+            ke = th * area * np.dot(B.transpose(), (np.dot(D, B)))
+            ixgrid = np.ix_(ind, ind)
+            k[ixgrid] += ke
+        return k
 
-    def int_phi(self, f=None, derivative=False):
+    def load_vector(self, mesh, pr, w):
         '''
-        assemble $\int f(x)\phi(x) dx$ or with $d\phi/dx$
+            assemble load vector
+            :return:
         '''
-        F = np.zeros(self.__nDOFs)
 
-        for elt in self.__elts:
-            d0 = elt.dofnos()
-            if not (f is None):
-                ff = f[d0]
-            else:
-                ff = None
-            F[d0] += elt.integral(ff, f2=None, derivative=derivative)
+        def cavern_boundaries(pr, w):
+            '''
+            Calculate nodal forces on the domain's boundaries.
+            '''
 
-        return F
+            x = p[0]  # x-coordinates of nodes
+            y = p[1]  # y-coordinates of nodes
+            nind_c = np.array([], dtype='i')  # cavern nodes indexes
+
+            for i in range(len(node_ind)):
+                if ph_group[i] == 1:
+                    nind_c = np.append(nind_c, node_ind[i, :])
+
+            nind_c = np.unique(nind_c)
+            alpha = np.array([])
+            d = np.array([])
+
+            for i in nind_c:
+                index = np.where((node_ind == i))[0]
+                nindex = node_ind[index].flatten()
+                seen = set([i])
+                neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
+
+                if x[i] > min(x):
+                    alpha1 = np.arctan((x[neighbours[0]] - x[i]) / (y[i] - y[neighbours[0]]))
+                    alpha2 = np.arctan((x[i] - x[neighbours[1]]) / (y[neighbours[1]] - y[i]))
+                    d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
+                    d2 = np.sqrt((x[i] - x[neighbours[1]]) ** 2 + (y[i] - y[neighbours[1]]) ** 2)
+                    d = np.append(d, (d1 + d2) / 2)
+                    alpha = np.append(alpha, ((alpha1 + alpha2) / 2))
+
+                elif x[i] == min(x):
+                    if y[i] > 0:
+                        alpha = np.append(alpha, np.pi / 2)
+                        d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
+                        d = np.append(d, d1)
+                    elif y[i] < 0:
+                        alpha = np.append(alpha, -np.pi / 2)
+                        d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
+                        d = np.append(d, d1)
+
+            # alpha_deg = np.degrees(alpha)
+            # alpha_deg = np.column_stack((alpha_deg, nind_c))
+            px = pr * np.cos(alpha) * d * w
+            py = pr * np.sin(alpha) * d * w
+            px = np.reshape(px, (len(px), 1))
+            py = np.reshape(py, (len(py), 1))
+
+            return px, py, nind_c
+
+        p = mesh.coordinates()
+        t = mesh.cells()
+        nnodes = mesh.Nnodes()  # number of nodes
+        nele = mesh.size()  # number of elements
+        ph_group = mesh.group()  # physical group of a line
+        node_ind = mesh.edges()  # nodes indexes of the edge
+        f = np.zeros((2 * nnodes, 1))
+        px, py, nind_c = cavern_boundaries(pr, w)
+
+        for k in range(nele):
+            el = np.array([p[:, t[0, k]], p[:, t[1, k]], p[:, t[2, k]]])
+            x = np.array(el[:, 0])
+            y = np.array(el[:, 1])
+            area = polyarea(p)
+            node = np.array([t[0, k], t[1, k], t[2, k]])
+            ind = [node[0] * 2, node[0] * 2 + 1, node[1] * 2, node[1] * 2 + 1, node[2] * 2, node[2] * 2 + 1]
+            fe = np.zeros(6)
+            j = 0
+
+            for i in range(3):
+
+                # Applying Newman's B.C. on the right edge
+                # if x[i] == 1:
+                #     fe[j] = -1
+                # j = j + 2
+
+                # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
+                if node[i] in nind_c:
+                    fe[2 * i] = fe[2 * i] + px[np.where(nind_c == node[i])]
+                    fe[2 * i + 1] = fe[2 * i + 1] + py[np.where(nind_c == node[i])]
+
+            for i in range(6):
+                f[ind[i]] = f[ind[i]] + fe[i]
+
+        return f
+
