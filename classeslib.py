@@ -18,7 +18,7 @@ def el_tenzor(mu, k):
 
 
 class Mesh(object):
-    '''
+    """
     A mesh is a list of point global coordinates
     and a list of element definitions (by cornerpoint)
     This class loads a uniform mesh of a domain Omega
@@ -26,13 +26,13 @@ class Mesh(object):
     coordinates(n=None): return coord node n, or all coords
     cells(n=None): array of n-th cell's cornerpoint numbers, or all
     size(): returns number of elements
-    '''
+    """
 
     def __init__(self, filename):
-        '''
+        """
         N is the number of elements = number of INTERVALS
         a and b are interval endpoints
-        '''
+        """
         m = meshio.read(filename)
 
         #  Coordinates
@@ -55,13 +55,13 @@ class Mesh(object):
         #  Edges
         self.__edges = m.cells['line']
 
-    def Nele(self):
+    def nele(self):
         return self.__N
 
-    def Ndofs(self):
+    def ndofs(self):
         return self.__Ndofs
 
-    def Nnodes(self):
+    def nnodes(self):
         return self.__Nnodes
 
     def coordinates(self, n=None):
@@ -108,7 +108,7 @@ class Mesh(object):
 
 
 class Shapefns(object):
-    '''
+    """
     Define shape functions
     These will be defined on the local coordinates
     Shapefns()
@@ -116,12 +116,12 @@ class Shapefns(object):
     ddxi(n):  dphi[n]
     ddtau(n):  dphi[n]
     size(): number of nodes for these shape functions
-    '''
+    """
 
     def __init__(self):
-        '''
+        """
         an array of functions for phi and deriv phi
-        '''
+        """
         # linear shape functions
         self.__phi = [lambda xi, tau: xi,
                       lambda xi, tau: tau,
@@ -132,32 +132,32 @@ class Shapefns(object):
         self.__N = 3  # number of nodes in element
 
     def eval(self, n, xi, tau):
-        '''
+        """
         the function phi[n](xi, tau), for any xi and tau
-        '''
+        """
         return self.__phi[n](xi, tau)
 
     def ddxi(self, n):
-        '''
+        """
         the function dphidxi[n]
-        '''
+        """
         return self.__dphidxi[n]
 
     def ddtau(self, n):
-        '''
+        """
         the function dphidtau[n]
-        '''
+        """
         return self.__dphidtau[n]
 
     def size(self):
-        '''
+        """
         the  number of points
-        '''
+        """
         return self.__N
 
 
 class FiniteElement(object):
-    '''
+    """
     A single finite element
     FiniteElement(mesh,sfns,eltno,dofnos): constructor
         mesh is a Mesh
@@ -172,18 +172,18 @@ class FiniteElement(object):
     integral(f1=None,f2=None,derivative=False): integral(f1*f2*phi)
       f1, f2: ndof-sized vector of coeffs for local function
       derivative=True, do integral(f1*f2*dphi)
-    '''
+    """
 
     def __init__(self, mesh, sfns, eltno, mu, kb):
-        '''
+        """
         mesh is the mesh it is built on
         sfns is the Shapefuns member
         eltno is this element's number
         endnos is a pair of ints giving the numbers of the endpoints
             in the mesh
         dofnos is an array of ints giving the numbers of the dofs
-        '''
-        assert (0 <= eltno < mesh.Nele())
+        """
+        assert (0 <= eltno < mesh.nele())
         # element number
         self.__eltno = eltno
         # node numbers of the element
@@ -207,35 +207,35 @@ class FiniteElement(object):
         self.__D = el_tenzor(mu[mesh.cell_ph_group(eltno) - 1], kb[mesh.cell_ph_group(eltno) - 1])
 
     def eltno(self):
-        ''' access element number '''
+        """ access element number """
         return self.__eltno
 
     def el_tenz(self):
-        ''' access elasticity tenzor '''
+        """ access elasticity tenzor """
         return self.__D
 
     def endpts(self):
-        ''' access endpoints '''
+        """ access endpoints """
         return self.__endpts
 
     def nodes(self):
-        ''' access dofpoints '''
+        """ access node indexes """
         return self.__endnos
 
     def area(self):
-        ''' evaluate area '''
+        """ evaluate area """
         return self.__area
 
     def dofnos(self):
-        ''' access dof point numbers '''
+        """ access dof points indexes """
         return self.__dofnos
 
     def numDofs(self):
-        ''' access numDofs '''
+        """ access numDofs """
         return self.__numDofs
 
     def jacobi(self, inv=False):
-        '''calculate J to perform local to global coordinates transformation'''
+        """calculate J to perform local to global coordinates transformation"""
         x, y = self.__endpts
         xc = np.zeros((3, 3))
         yc = np.zeros((3, 3))
@@ -254,16 +254,16 @@ class FiniteElement(object):
             return j
 
     def derivative(self, n):
-        '''
+        """
         evaluate the n-th shape function on this element
         at the spatial coordinate x
-        '''
+        """
 
         return np.array([self.__sfns.ddxi(n), self.__sfns.ddtau(n)])
 
 
 class FunctionSpace(object):
-    '''
+    """
     A FunctionSpace has a list of elements
     numbered and with coords according to mesh
     FunctionSpace(mesh,sfns): constructor, sfns is ShapeFuns
@@ -278,20 +278,22 @@ class FunctionSpace(object):
         integral(f*phi) or
         integral(f*dphi)
 
-    '''
+    """
 
     def __init__(self, mesh, sfns, mu, kb):
-        '''
+        """
         mesh is the mesh
         sfns is the Shapefuns
-        '''
+        """
+        # number of nodes
+        self.__nnodes = mesh.nnodes()
         # number of elements
-        self.__size = mesh.Nele()
+        self.__nele = mesh.nele()
         # number of degrees of freedom
-        self.__nDOFs = mesh.Ndofs()
+        self.__nDOFs = mesh.ndofs()
         # list of all elements
         self.__elts = list([])
-        for n in range(self.__size):
+        for n in range(self.__nele):
             fe = FiniteElement(mesh, sfns, n, mu, kb)
             self.__elts.append(fe)
 
@@ -314,10 +316,10 @@ class FunctionSpace(object):
         return B
 
     def stiff_matrix(self, th):
-        '''
+        """
         assemble stiffness matrix
         :return:
-        '''
+        """
         nDofs = self.__nDOFs
         k = np.zeros((nDofs, nDofs))
         for elt in self.__elts:
@@ -331,15 +333,15 @@ class FunctionSpace(object):
         return k
 
     def load_vector(self, mesh, pr, w):
-        '''
+        """
         assemble load vector
         :return:
-        '''
+        """
 
-        def cavern_boundaries(pr, w):
-            '''
+        def cavern_boundaries():
+            """
             Calculate nodal forces on the domain's boundaries.
-            '''
+            """
 
             nind_c = np.array([], dtype='i')  # cavern nodes indexes
 
@@ -385,14 +387,13 @@ class FunctionSpace(object):
             return px, py, nind_c
 
         x, y = mesh.coordinates()  # nodal coordinates
-        nnodes = mesh.Nnodes()  # number of nodes
+        nnodes = mesh.nnodes()  # number of nodes
         ph_group = mesh.group()  # physical group of a line
         node_ind = mesh.edges()  # nodes indexes of an element's edge
         f = np.zeros((2 * nnodes, 1))
-        px, py, nind_c = cavern_boundaries(pr, w)
+        px, py, nind_c = cavern_boundaries()
 
         for elt in self.__elts:
-            x, y = mesh.coordinates()
             node = elt.nodes()
             ind = elt.dofnos()
             fe = np.zeros(6)
@@ -414,11 +415,124 @@ class FunctionSpace(object):
 
         return f
 
+    def creep_load_vector(self, nt, u, strain, stress, th, f, d_bnd):
+        """
+        assemble creep load vector
+        :return:
+        """
+
+        def deviatoric_stress():
+            stressx = stress[0, :]
+            stressy = stress[1, :]
+            stressxy = stress[2, :]
+            dstressx = stressx - 0.5 * (stressx + stressy)
+            dstressy = stressy - 0.5 * (stressx + stressy)
+            dstressxy = stressxy
+            dstress = [dstressx, dstressy, dstressxy]
+
+            return dstress
+
+        def von_mises_stress():
+            dstress = deviatoric_stress()
+            # stressx = stress[0, :]
+            # stressy = stress[1, :]
+            # stressxy = stress[2, :]
+            # svm = np.sqrt(np.square(stressx) - stressx * stressy + np.square(stressy) + 3 * np.square(stressxy))
+            svm = np.sqrt(3 / 2 * np.sum((np.transpose(dstress) * np.transpose(dstress)), axis=1))
+
+            return svm
+
+        def assemble_creep_forces_vector(ecr):
+            fcr = np.zeros((2 * nnodes, 1))
+
+            for elt in self.__elts:
+                area = elt.area()
+                ind = elt.dofnos()
+                B = self.strain_disp_matrix(elt.eltno())
+                D = elt.el_tenz()
+                fcre = 0.5 * th * area * np.dot(np.transpose(B), np.dot(D, ecr[:, elt.eltno()]))
+                fcr[ind] = fcre
+
+                # for i in range(6):
+                #     fcr[ind[i]] = fcr[ind[i]] + fcre[i]
+
+            return fcr
+
+        et = [0]
+        nnodes = self.__nnodes
+        nele = self.__nele
+        disp_out = np.zeros((2 * nnodes, nt))
+        stress_out = np.zeros((3 * nnodes, nt))
+        strain_out = np.zeros((3 * nnodes, nt))
+        forces_out = np.zeros((2 * nnodes, nt))
+        svm_out = np.zeros((nnodes, nt))
+        strain_crg = np.zeros((3, nele))
+        fo = f
+        # strain_cr = np.zeros((3, nnodes))
+
+        # output
+        disp_out[:, 0] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
+        strain_out[:, 0] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
+        stress_out[:, 0] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
+        svm_out[:, 0] = von_mises_stress(stress).transpose()
+
+        if nt > 1:
+            for i in range(nt - 1):
+                # calculate time step size
+                # if 'time step size' not in input:
+                #     dt = calculate_timestep()
+
+                # fo, sign[0, i + 1] = calculate_pressure_forces((et[-1] + dt) / 86400, c)
+                svm = von_mises_stress(stress)
+                svmg = von_mises_stress(stressg)
+
+                # if sign[0, i] * sign[0, i + 1] > 0:
+                #     dstressg = deviatoric_stress(stressg)
+                #     g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
+                #     strain_crg = strain_crg + g_crg * dt
+                # else:
+                #     strain_crg = np.zeros((3, nele))
+
+                f_cr = assemble_creep_forces_vector(strain_crg)
+                f = fo + f_cr  # calculate RHS = creep forces + external load
+                f[d_bnd] = 0  # impose Dirichlet B.C. on forces vector
+
+                u = np.linalg.solve(k, f)
+                straing, stressg = gauss_stress_strain(p, t, u, d)
+                strain, _ = nodal_stress_strain(p, t, straing, stressg)
+                stressg = np.dot(d, (straing - strain_crg))
+                _, stress = nodal_stress_strain(p, t, straing, stressg)
+                disp_out[:, i + 1] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
+                strain_out[:, i + 1] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
+                stress_out[:, i + 1] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
+                forces_out[:, i + 1] = np.concatenate((f_cr[0::2].reshape(nnodes, ), f_cr[1::2].reshape(nnodes, )),
+                                                      axis=0)
+                svm_out[:, i + 1] = svm.transpose()
+
+                # elapsed time
+                et = np.append(et, et[-1] + dt)
+
+                if np.max(abs(disp_out)) > 3:
+                    sys.exit("Unphysical solution on time step t = {}.".format(i))
+
+        output = {
+            'displacement': disp_out,
+            'strain': strain_out,
+            'stress': stress_out,
+            'creep forces': forces_out,
+            'Von Mises stress': svm_out,
+            'elapsed time': et
+        }
+
+        print("Done.")
+
+        return output
+
     def gauss_stress_strain(self, mesh, u):
-        '''
-        Stress and strains evaluated at Gaussian points.
-        '''
-        nele = mesh.Nele()
+        """
+        Stresses and strains evaluated at Gaussian points.
+        """
+        nele = mesh.nele()
         strain = np.zeros((3, nele))
         stress = np.zeros((3, nele))
         for elt in self.__elts:

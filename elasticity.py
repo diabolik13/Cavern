@@ -480,9 +480,9 @@ def impose_dirichlet(k, f, d_bnd):
 
 def von_mises_stress(stress):
     dstress = deviatoric_stress(stress)
-    stressx = stress[0, :]
-    stressy = stress[1, :]
-    stressxy = stress[2, :]
+    # stressx = stress[0, :]
+    # stressy = stress[1, :]
+    # stressxy = stress[2, :]
     # svm = np.sqrt(np.square(stressx) - stressx * stressy + np.square(stressy) + 3 * np.square(stressxy))
     svm = np.sqrt(3 / 2 * np.sum((np.transpose(dstress) * np.transpose(dstress)), axis=1))
 

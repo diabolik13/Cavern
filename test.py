@@ -11,6 +11,8 @@ kb = [22e9, 6e9, 22e9]  # Bulk modulus, [Pa]
 th = 1e3  # thickness of the domain, [m]
 w = 1e2  # cavern's width, [m]
 pr = 3e6  # difference between cavern's and lithostatic pressure, [Pa]
+nt = 5  # number of time steps, [-]
+dt = 31536000e-2  # time step, [s]
 
 mesh = Mesh('./mesh/heterogen.msh')
 sfns = Shapefns()
@@ -26,4 +28,4 @@ straing, stressg = V.gauss_stress_strain(mesh, u)
 strain, stress = nodal_stress_strain(mesh.coordinates(), mesh.cells(), straing, stressg)
 
 plot_results(mesh.coordinates(), mesh.cells(), 'disp', 'strain', 'stress', u, strain, stress)
-print(str(mesh.Ndofs()))
+print(str(mesh.ndofs()))
