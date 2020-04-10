@@ -19,12 +19,12 @@ class Logger(object):
 
 sys.stdout = Logger("log.txt")
 time_start = time.time()
-mesh_filename = 'new_cave.msh'  # supported formats: *.mat and *.msh
+mesh_filename = 'heterogen.msh'  # supported formats: *.mat and *.msh
 input_param = load_input(mesh_filename)
 output = calculate_creep(input_param)
 elapsed_1 = time.time() - time_start
 time_implicit = time.time()
-output_NR = calculate_creep_NR(input_param)
+# output_NR = calculate_creep_NR(input_param)
 elapsed_2 = time.time() - time_implicit
 # diff_d = np.max(abs(output['displacement'] - output_NR['displacement']))
 # diff_e = np.max(abs(output['strain'] - output_NR['strain']))
@@ -44,7 +44,7 @@ print("\nExplicit simulation is done in {} seconds.\n"
 #       "\n Strain: {0:.1e},".format(diff_e),
 #       "\n Stress: {0:.1e} Pa.\n ".format(diff_s))
 
-# write_results(input_param, output, 15, '.png', exaggerate=True)
+write_results(input_param, output, 25, '.gif', exaggerate=True)
 # write_results_xdmf(input_param, output)
 # save_plot(input_param, output, 228)
 print('Done in ' + str(time.time() - time_start) + ' seconds.')

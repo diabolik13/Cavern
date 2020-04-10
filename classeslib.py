@@ -417,7 +417,7 @@ class FunctionSpace(object):
 
         return f
 
-    def creep_load_vector(self, nt, dt, w, th, pr, d_bnd):
+    def creep_load_vector(self, nt, dt, w, th, pr, d_bnd, a, n, q, r, temp):
         """
         assemble creep load vector
         :return:
@@ -436,10 +436,6 @@ class FunctionSpace(object):
 
         def von_mises_stress():
             dstress = deviatoric_stress()
-            # stressx = stress[0, :]
-            # stressy = stress[1, :]
-            # stressxy = stress[2, :]
-            # svm = np.sqrt(np.square(stressx) - stressx * stressy + np.square(stressy) + 3 * np.square(stressxy))
             svm = np.sqrt(3 / 2 * np.sum((np.transpose(dstress) * np.transpose(dstress)), axis=1))
 
             return svm
@@ -454,9 +450,6 @@ class FunctionSpace(object):
                 D = elt.el_tenz()
                 fcre = 0.5 * th * area * np.dot(np.transpose(B), np.dot(D, ecr[:, elt.eltno()]))
                 fcr[ind] = fcre
-
-                # for i in range(6):
-                #     fcr[ind[i]] = fcr[ind[i]] + fcre[i]
 
             return fcr
 
@@ -494,6 +487,9 @@ class FunctionSpace(object):
                 # fo, sign[0, i + 1] = calculate_pressure_forces((et[-1] + dt) / 86400, c)
                 svm = von_mises_stress()
                 svmg = von_mises_stress()
+                dstressg = deviatoric_stress()
+                g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
+                strain_crg = strain_crg + g_crg * dt
 
                 # if sign[0, i] * sign[0, i + 1] > 0:
                 #     dstressg = deviatoric_stress(stressg)
@@ -538,6 +534,48 @@ class FunctionSpace(object):
         print("Done.")
 
         return output
+
+    def creep_load_vector2(self, dt, th, a, n, q, r, temp, stress, strain_crg):
+        """
+        assemble creep load vector
+        :return:
+        """
+
+        def deviatoric_stress():
+            dstressx = stress[0, :] - 0.5 * (stress[0, :] + stress[1, :])
+            dstressy = stress[1, :] - 0.5 * (stress[0, :] + stress[1, :])
+            dstress = [dstressx, dstressy, stress[2, :]]
+
+            return dstress
+
+        def von_mises_stress():
+            dstress = deviatoric_stress()
+            svm = np.sqrt(3 / 2 * np.sum((np.transpose(dstress) * np.transpose(dstress)), axis=1))
+
+            return svm
+
+        def assemble_creep_forces_vector(ecr):
+            fcr = np.zeros((self.__nDOFs, 1))
+
+            for elt in self.__elts:
+                area = elt.area()
+                ind = elt.dofnos()
+                B = self.strain_disp_matrix(elt.eltno())
+                D = elt.el_tenz()
+                fcre = th * area * np.dot(np.transpose(B), np.dot(D, ecr[:, elt.eltno()]))
+                fcr[ind] = fcre.reshape((6, 1))
+
+            return fcr
+
+        svmg = von_mises_stress()
+        dstressg = deviatoric_stress()
+        g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
+        strain_crg = strain_crg + g_crg * dt
+        f_cr = assemble_creep_forces_vector(strain_crg)
+        # f = fo + f_cr
+        # f[d_bnd] = 0
+
+        return f_cr, strain_crg
 
     def gauss_strain(self, u):
         """

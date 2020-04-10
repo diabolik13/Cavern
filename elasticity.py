@@ -24,7 +24,7 @@ def load_input(mesh_filename):
     mu = 11e9  # Shear modulus, [Pa]
     pr = 3e6  # cavern and lithostatic pressure difference, [Pa]
     dof = 2  # degrees of freedom, [-]
-    nt = 100  # number of time steps, [-]
+    nt = 15  # number of time steps, [-]
     a = 1e-21  # creep material constant, [Pa]^n
     n = 5  # creep material constant, [-]
     th = 1e3  # thickness of the model in z, [m]
@@ -195,11 +195,11 @@ def assemble_vector(p, t, nind_c, px=0, py=0):
 
             # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
             if node[i] in nind_c:
-                fe[2 * i] = fe[2 * i] + px[np.where(nind_c == node[i])]
-                fe[2 * i + 1] = fe[2 * i + 1] + py[np.where(nind_c == node[i])]
+                fe[2 * i] = px[np.where(nind_c == node[i])]
+                fe[2 * i + 1] = py[np.where(nind_c == node[i])]
 
         for i in range(6):
-            f[ind[i]] = f[ind[i]] + fe[i]
+            f[ind[i]] = fe[i]
 
     return f
 
@@ -427,7 +427,7 @@ def cavern_boundaries(m, p, pr, w):
     nind_c = np.array([], dtype='i')  # cavern nodes indexes
 
     for i in range(len(lines)):
-        if ph_group[i] == 1:
+        if ph_group[i] == 4:
             nind_c = np.append(nind_c, lines[i, :])
 
     nind_c = np.unique(nind_c)
@@ -490,13 +490,13 @@ def von_mises_stress(stress):
 
 
 def deviatoric_stress(stress):
-    stressx = stress[0, :]
-    stressy = stress[1, :]
-    stressxy = stress[2, :]
+    stressx = stress[0]
+    stressy = stress[1]
+    stressxy = stress[2]
     dstressx = stressx - 0.5 * (stressx + stressy)
     dstressy = stressy - 0.5 * (stressx + stressy)
     dstressxy = stressxy
-    dstress = [dstressx, dstressy, dstressxy]
+    dstress = np.array([dstressx, dstressy, dstressxy])
 
     return dstress
 
@@ -615,6 +615,7 @@ def calculate_creep(input):
             if np.max(abs(disp_out)) > 3:
                 sys.exit("Unphysical solution on time step t = {}.".format(i))
 
+    disp_out = disp_out - disp_out[:, 0].reshape((2 * nnodes, 1))
     output = {
         'displacement': disp_out,
         'strain': strain_out,
@@ -723,10 +724,10 @@ def assemble_creep_forces_vector(dof, p, t, d, ecr, th):
         ind = [global_node[0] * 2, global_node[0] * 2 + 1, global_node[1] * 2, global_node[1] * 2 + 1,
                global_node[2] * 2, global_node[2] * 2 + 1]
         b = generate_displacement_strain_matrix(el)
-        fcre = 0.5 * th * area * np.dot(np.transpose(b), np.dot(d, ecr[:, e]))
+        fcre = th * area * np.dot(np.transpose(b), np.dot(d, ecr[:, e]))
 
         for i in range(6):
-            fcr[ind[i]] = fcr[ind[i]] + fcre[i]
+            fcr[ind[i]] = fcre[i]
 
     return fcr
 
