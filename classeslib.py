@@ -106,6 +106,58 @@ class Mesh(object):
         else:
             return self.__pg
 
+    def extract_bnd(self, lx=None, ly=None, rx=None, ry=None, tx=None, ty=None, bx=None, by=None):
+        """
+        Extracts indices of dof on the domain's boundary, such that L_bnd and R_bnd contain x-dof indices and
+        B_bnd and T_bnd contain y-dof indices.
+        """
+
+        l_bnd_x = np.array([], dtype='i')
+        l_bnd_y = np.array([], dtype='i')
+        r_bnd_x = np.array([], dtype='i')
+        r_bnd_y = np.array([], dtype='i')
+        b_bnd_x = np.array([], dtype='i')
+        b_bnd_y = np.array([], dtype='i')
+        t_bnd_x = np.array([], dtype='i')
+        t_bnd_y = np.array([], dtype='i')
+        d_bnd = np.array([], dtype='i')
+        x = self.__nodes[0]
+        y = self.__nodes[1]
+
+        for i in range(self.__Nnodes):
+            if x[i] == np.min(x):
+                l_bnd_x = np.append(l_bnd_x, i * 2)
+                l_bnd_y = np.append(l_bnd_y, i * 2 + 1)
+            if y[i] == np.min(y):
+                b_bnd_x = np.append(b_bnd_x, i * 2)
+                b_bnd_y = np.append(b_bnd_y, i * 2 + 1)
+            if x[i] == np.max(x):
+                r_bnd_x = np.append(r_bnd_x, i * 2)
+                r_bnd_y = np.append(r_bnd_y, i * 2 + 1)
+            if y[i] == np.max(y):
+                t_bnd_x = np.append(t_bnd_x, i * 2)
+                t_bnd_y = np.append(t_bnd_y, i * 2 + 1)
+
+        # d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
+        if not (lx == None):
+            d_bnd = np.concatenate((d_bnd, l_bnd_x))
+        if not (ly == None):
+            d_bnd = np.concatenate((d_bnd, l_bnd_y))
+        if not (rx == None):
+            d_bnd = np.concatenate((d_bnd, r_bnd_x))
+        if not (ry == None):
+            d_bnd = np.concatenate((d_bnd, r_bnd_y))
+        if not (bx == None):
+            d_bnd = np.concatenate((d_bnd, b_bnd_x))
+        if not (by == None):
+            d_bnd = np.concatenate((d_bnd, b_bnd_y))
+        if not (tx == None):
+            d_bnd = np.concatenate((d_bnd, t_bnd_x))
+        if not (ty == None):
+            d_bnd = np.concatenate((d_bnd, t_bnd_y))
+
+        return d_bnd
+
 
 class Shapefns(object):
     """
@@ -389,11 +441,11 @@ class FunctionSpace(object):
             return px, py, nind_c
 
         x, y = self.__mesh.coordinates()  # nodal coordinates
-        nnodes = self.__mesh.nnodes()  # number of nodes
+        nnodes = self.__nnodes  # number of nodes
         ph_group = self.__mesh.group()  # physical group of a line
         node_ind = self.__mesh.edges()  # nodes indexes of an element's edge
         f = np.zeros((2 * nnodes, 1))
-        px, py, nind_c = cavern_boundaries()
+        # px, py, nind_c = cavern_boundaries()
 
         for elt in self.__elts:
             node = elt.nodes()
@@ -404,157 +456,154 @@ class FunctionSpace(object):
             for i in range(3):
 
                 # Applying Newman's B.C. on the right edge
-                # if x[i] == 1:
-                #     fe[j] = -1
-                # j = j + 2
+                if x[node[i]] == np.max(x):
+                    fe[j] = -1
+                j = j + 2
 
                 # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
-                if node[i] in nind_c:
-                    fe[2 * i] = fe[2 * i] + px[np.where(nind_c == node[i])]
-                    fe[2 * i + 1] = fe[2 * i + 1] + py[np.where(nind_c == node[i])]
+                # if node[i] in nind_c:
+                #     fe[2 * i] = px[np.where(nind_c == node[i])]
+                #     fe[2 * i + 1] = py[np.where(nind_c == node[i])]
 
-            f[ind] += fe.reshape((6, 1))
+            f[ind] = fe.reshape((6, 1))
 
         return f
 
-    def creep_load_vector(self, nt, dt, w, th, pr, d_bnd, a, n, q, r, temp):
-        """
-        assemble creep load vector
-        :return:
-        """
-
-        def deviatoric_stress():
-            stressx = stress[0, :]
-            stressy = stress[1, :]
-            stressxy = stress[2, :]
-            dstressx = stressx - 0.5 * (stressx + stressy)
-            dstressy = stressy - 0.5 * (stressx + stressy)
-            dstressxy = stressxy
-            dstress = [dstressx, dstressy, dstressxy]
-
-            return dstress
-
-        def von_mises_stress():
-            dstress = deviatoric_stress()
-            svm = np.sqrt(3 / 2 * np.sum((np.transpose(dstress) * np.transpose(dstress)), axis=1))
-
-            return svm
-
-        def assemble_creep_forces_vector(ecr):
-            fcr = np.zeros((2 * nnodes, 1))
-
-            for elt in self.__elts:
-                area = elt.area()
-                ind = elt.dofnos()
-                B = self.strain_disp_matrix(elt.eltno())
-                D = elt.el_tenz()
-                fcre = 0.5 * th * area * np.dot(np.transpose(B), np.dot(D, ecr[:, elt.eltno()]))
-                fcr[ind] = fcre
-
-            return fcr
-
-        et = [0]
-        nnodes = self.__nnodes
-        nele = self.__nele
-        disp_out = np.zeros((2 * nnodes, nt))
-        stress_out = np.zeros((3 * nnodes, nt))
-        strain_out = np.zeros((3 * nnodes, nt))
-        forces_out = np.zeros((2 * nnodes, nt))
-        svm_out = np.zeros((nnodes, nt))
-        strain_crg = np.zeros((3, nele))
-        k = self.stiff_matrix(th)
-        f = self.load_vector(pr, w)
-        fo = f
-        # strain_cr = np.zeros((3, nnodes))
-
-        # output
-        u = np.linalg.solve(k, f)
-        straing = self.gauss_strain(u)
-        strain = self.nodal_extrapolation(straing)
-        stressg = self.calc_stressg(straing)
-        stress = self.nodal_extrapolation(stressg)
-        disp_out[:, 0] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
-        strain_out[:, 0] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
-        stress_out[:, 0] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
-        svm_out[:, 0] = von_mises_stress().transpose()
-
-        if nt > 1:
-            for i in range(nt - 1):
-                # calculate time step size
-                # if 'time step size' not in input:
-                #     dt = calculate_timestep()
-
-                # fo, sign[0, i + 1] = calculate_pressure_forces((et[-1] + dt) / 86400, c)
-                svm = von_mises_stress()
-                svmg = von_mises_stress()
-                dstressg = deviatoric_stress()
-                g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
-                strain_crg = strain_crg + g_crg * dt
-
-                # if sign[0, i] * sign[0, i + 1] > 0:
-                #     dstressg = deviatoric_stress(stressg)
-                #     g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
-                #     strain_crg = strain_crg + g_crg * dt
-                # else:
-                #     strain_crg = np.zeros((3, nele))
-
-                f_cr = assemble_creep_forces_vector(strain_crg)
-                f = fo + f_cr  # calculate RHS = creep forces + external load
-                f[d_bnd] = 0  # impose Dirichlet B.C. on forces vector
-
-                u = np.linalg.solve(k, f)
-                straing = self.gauss_strain(u)
-                strain = self.nodal_extrapolation(straing)
-                stressg = self.calc_stressg(straing - strain_crg)
-                stress = self.nodal_extrapolation(stressg)
-                # stressg = np.dot(d, (straing - strain_crg))
-                # _, stress = nodal_stress_strain(p, t, straing, stressg)
-                disp_out[:, i + 1] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
-                strain_out[:, i + 1] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
-                stress_out[:, i + 1] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
-                forces_out[:, i + 1] = np.concatenate((f_cr[0::2].reshape(nnodes, ),
-                                                       f_cr[1::2].reshape(nnodes, )), axis=0)
-                svm_out[:, i + 1] = svm.transpose()
-
-                # elapsed time
-                et = np.append(et, et[-1] + dt)
-
-                # if np.max(abs(disp_out)) > 3:
-                #     sys.exit("Unphysical solution on time step t = {}.".format(i))
-
-        output = {
-            'displacement': disp_out,
-            'strain': strain_out,
-            'stress': stress_out,
-            'creep forces': forces_out,
-            'Von Mises stress': svm_out,
-            'elapsed time': et
-        }
-
-        print("Done.")
-
-        return output
+    # def creep_load_vector(self, nt, dt, w, th, pr, d_bnd, a, n, q, r, temp):
+    #     """
+    #     assemble creep load vector
+    #     :return:
+    #     """
+    #     from elasticity import von_mises_stress
+    #
+    #     def deviatoric_stress():
+    #         dstressx = stress[0] - 0.5 * (stress[0] + stress[1])
+    #         dstressy = stress[1] - 0.5 * (stress[0] + stress[1])
+    #
+    #         return np.array([dstressx, dstressy, stress[2]])
+    #
+    #     # def von_mises_stress():
+    #     #     dstress = deviatoric_stress()
+    #     #     svm = np.sqrt(3 / 2 * np.sum((np.transpose(dstress) * np.transpose(dstress)), axis=1))
+    #     #
+    #     #     return svm
+    #
+    #     def assemble_creep_forces_vector(ecr):
+    #         fcr = np.zeros((2 * nnodes, 1))
+    #
+    #         for elt in self.__elts:
+    #             area = elt.area()
+    #             ind = elt.dofnos()
+    #             B = self.strain_disp_matrix(elt.eltno())
+    #             D = elt.el_tenz()
+    #             fcre = 0.5 * th * area * np.dot(np.transpose(B), np.dot(D, ecr[:, elt.eltno()]))
+    #             fcr[ind] = fcre
+    #
+    #         return fcr
+    #
+    #     et = [0]
+    #     nnodes = self.__nnodes
+    #     nele = self.__nele
+    #     disp_out = np.zeros((2 * nnodes, nt))
+    #     stress_out = np.zeros((3 * nnodes, nt))
+    #     strain_out = np.zeros((3 * nnodes, nt))
+    #     forces_out = np.zeros((2 * nnodes, nt))
+    #     svm_out = np.zeros((nnodes, nt))
+    #     strain_crg = np.zeros((3, nele))
+    #     k = self.stiff_matrix(th)
+    #     f = self.load_vector(pr, w)
+    #     fo = f
+    #     # strain_cr = np.zeros((3, nnodes))
+    #
+    #     # output
+    #     u = np.linalg.solve(k, f)
+    #     straing = self.gauss_strain(u)
+    #     strain = self.nodal_extrapolation(straing)
+    #     stressg = self.calc_stressg(straing)
+    #     stress = self.nodal_extrapolation(stressg)
+    #     disp_out[:, 0] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
+    #     strain_out[:, 0] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
+    #     stress_out[:, 0] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
+    #     svm_out[:, 0] = von_mises_stress().transpose()
+    #
+    #     if nt > 1:
+    #         for i in range(nt - 1):
+    #             # calculate time step size
+    #             # if 'time step size' not in input:
+    #             #     dt = calculate_timestep()
+    #
+    #             # fo, sign[0, i + 1] = calculate_pressure_forces((et[-1] + dt) / 86400, c)
+    #             svm = von_mises_stress()
+    #             svmg = von_mises_stress()
+    #             dstressg = deviatoric_stress()
+    #             g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
+    #             strain_crg = strain_crg + g_crg * dt
+    #
+    #             # if sign[0, i] * sign[0, i + 1] > 0:
+    #             #     dstressg = deviatoric_stress(stressg)
+    #             #     g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
+    #             #     strain_crg = strain_crg + g_crg * dt
+    #             # else:
+    #             #     strain_crg = np.zeros((3, nele))
+    #
+    #             f_cr = assemble_creep_forces_vector(strain_crg)
+    #             f = fo + f_cr  # calculate RHS = creep forces + external load
+    #             f[d_bnd] = 0  # impose Dirichlet B.C. on forces vector
+    #
+    #             u = np.linalg.solve(k, f)
+    #             straing = self.gauss_strain(u)
+    #             strain = self.nodal_extrapolation(straing)
+    #             stressg = self.calc_stressg(straing - strain_crg)
+    #             stress = self.nodal_extrapolation(stressg)
+    #             # stressg = np.dot(d, (straing - strain_crg))
+    #             # _, stress = nodal_stress_strain(p, t, straing, stressg)
+    #             disp_out[:, i + 1] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
+    #             strain_out[:, i + 1] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
+    #             stress_out[:, i + 1] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
+    #             forces_out[:, i + 1] = np.concatenate((f_cr[0::2].reshape(nnodes, ),
+    #                                                    f_cr[1::2].reshape(nnodes, )), axis=0)
+    #             svm_out[:, i + 1] = svm.transpose()
+    #
+    #             # elapsed time
+    #             et = np.append(et, et[-1] + dt)
+    #
+    #             # if np.max(abs(disp_out)) > 3:
+    #             #     sys.exit("Unphysical solution on time step t = {}.".format(i))
+    #
+    #     output = {
+    #         'displacement': disp_out,
+    #         'strain': strain_out,
+    #         'stress': stress_out,
+    #         'creep forces': forces_out,
+    #         'Von Mises stress': svm_out,
+    #         'elapsed time': et
+    #     }
+    #
+    #     print("Done.")
+    #
+    #     return output
 
     def creep_load_vector2(self, dt, th, a, n, q, r, temp, stress, strain_crg):
         """
         assemble creep load vector
         :return:
         """
+        from elasticity import von_mises_stress
 
         def deviatoric_stress():
-            dstressx = stress[0, :] - 0.5 * (stress[0, :] + stress[1, :])
-            dstressy = stress[1, :] - 0.5 * (stress[0, :] + stress[1, :])
-            dstress = [dstressx, dstressy, stress[2, :]]
+            dstressx = stress[0] - 0.5 * (stress[0] + stress[1])
+            dstressy = stress[1] - 0.5 * (stress[0] + stress[1])
 
-            return dstress
+            return np.array([dstressx, dstressy, stress[2]])
 
-        def von_mises_stress():
-            dstress = deviatoric_stress()
-            svm = np.sqrt(3 / 2 * np.sum((np.transpose(dstress) * np.transpose(dstress)), axis=1))
+        # def von_mises_stress():
+        #     dstress = deviatoric_stress()
+        #     # svm = np.sqrt(3 / 2 * np.sum((np.transpose(dstress) * np.transpose(dstress)), axis=1))
+        #     svm = np.sqrt(stress[0] ** 2 - stress[0] * stress[1] + stress[1] ** 2 + 3 * stress[2] ** 2)
+        #
+        #     return svm
 
-            return svm
-
-        def assemble_creep_forces_vector(ecr):
+        def assemble_creep_forces_vector():
             fcr = np.zeros((self.__nDOFs, 1))
 
             for elt in self.__elts:
@@ -562,18 +611,16 @@ class FunctionSpace(object):
                 ind = elt.dofnos()
                 B = self.strain_disp_matrix(elt.eltno())
                 D = elt.el_tenz()
-                fcre = th * area * np.dot(np.transpose(B), np.dot(D, ecr[:, elt.eltno()]))
+                fcre = th * area * np.dot(np.transpose(B), np.dot(D, strain_crg[:, elt.eltno()]))
                 fcr[ind] = fcre.reshape((6, 1))
 
             return fcr
 
-        svmg = von_mises_stress()
         dstressg = deviatoric_stress()
+        svmg = von_mises_stress(stress)
         g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
         strain_crg = strain_crg + g_crg * dt
-        f_cr = assemble_creep_forces_vector(strain_crg)
-        # f = fo + f_cr
-        # f[d_bnd] = 0
+        f_cr = assemble_creep_forces_vector()
 
         return f_cr, strain_crg
 
@@ -581,9 +628,8 @@ class FunctionSpace(object):
         """
         Stresses and strains evaluated at Gaussian points.
         """
-        nele = self.__mesh.nele()
-        strain = np.zeros((3, nele))
-        stress = np.zeros((3, nele))
+
+        strain = np.zeros((3, self.__nele))
         for elt in self.__elts:
             node = elt.nodes()
             B = self.strain_disp_matrix(elt.eltno())
@@ -591,39 +637,34 @@ class FunctionSpace(object):
                           u[node[1] * 2], u[node[1] * 2 + 1],
                           u[node[2] * 2], u[node[2] * 2 + 1], ])
             strain[:, [elt.eltno()]] = np.dot(B, q)
-            # stress[:, [elt.eltno()]] = np.dot(elt.el_tenz(), strain[:, [elt.eltno()]])
 
         return strain
 
     def nodal_extrapolation(self, variable_g):
         """Stress and strains extrapolated to nodal points."""
 
-        nnodes = self.__nnodes
-        variable = np.zeros((3, nnodes))
-        # stress = np.zeros((3, nnodes))
+        variable = np.zeros((3, self.__nnodes))
 
-        for node in range(nnodes):
+        for node in range(self.__nnodes):
             i, j = np.where(self.__mesh.cells() == node)
             ntri = i.shape[0]
             area = np.zeros((ntri, 1))
             variable_e = np.zeros((3, ntri))
-            # stresse = np.zeros((3, ntri))
 
             for ii in range(ntri):
                 ind = j[ii]
                 area[ii] = self.__elts[ind].area()
                 variable_e[:, ii] = variable_g[:, ind]
-                # stresse[:, ii] = stressg[:, ind]
 
             areat = np.sum(area)
             variable[:, [node]] = (1 / areat) * np.dot(variable_e, area)
-            # stress[:, [node]] = (1 / areat) * np.dot(stresse, area)
 
         return variable
 
-    def calc_stressg(self, straing):
+    def gauss_stress(self, straing):
 
         stressg = np.zeros((3, self.__nele))
         for elt in self.__elts:
             stressg[:, elt.eltno()] = np.dot(elt.el_tenz(), straing[:, elt.eltno()])
+
         return stressg

@@ -266,6 +266,109 @@ def write_results_xdmf(input, output):
     print("Done writing results to *.xdmf files.")
 
 
+def write_results_xdmf2(nt, p, t, output):
+    """Saves results in one file in *.xdmf format for ParaView."""
+
+    # nt = input['number of time steps']
+    # m = input['mesh data']
+    # p = input['points']
+
+    nnodes = len(p[0])
+
+    if nt > 1:
+        time = np.round((output['elapsed time'] / 86400), 2)
+    elif nt == 1:
+        time = np.array([0])
+
+    data = {
+        0: {
+            0: {
+                "title": 'displacement_x',
+                "units": '[m]',
+                "value": output['displacement'][:nnodes]
+            },
+            1: {
+                "title": 'displacement_y',
+                "units": '[m]',
+                "value": output['displacement'][nnodes:]
+            }
+        },
+        1: {
+            0: {
+                "title": 'strain_x',
+                "units": '[-]',
+                "value": output['strain'][:nnodes]
+            },
+            1: {
+                "title": 'strain_y',
+                "units": '[-]',
+                "value": output['strain'][nnodes:2 * nnodes]
+            },
+            2: {
+                "title": 'strain_shear',
+                "units": '[-]',
+                "value": output['strain'][2 * nnodes:3 * nnodes]
+            }
+        },
+        2: {
+            0: {
+                "title": 'stress_x',
+                "units": '[Pa]',
+                "value": output['stress'][:nnodes]
+            },
+            1: {
+                "title": 'stress_y',
+                "units": '[Pa]',
+                "value": output['stress'][nnodes:2 * nnodes]
+            },
+            2: {
+                "title": 'stress_shear',
+                "units": '[Pa]',
+                "value": output['stress'][2 * nnodes:3 * nnodes]
+            }
+        },
+        3: {
+            0: {
+                "title": 'creep_forces_x',
+                "units": '[N]',
+                "value": output['creep forces'][:nnodes]
+            },
+            1: {
+                "title": 'creep_forces_y',
+                "units": '[N]',
+                "value": output['creep forces'][nnodes:]
+            }
+        },
+        4: {
+            0: {
+                "title": 'Von_Mises_stress',
+                "units": '[Pa]',
+                "value": output['Von Mises stress']
+            }
+        }
+    }
+
+    with meshio.xdmf.TimeSeriesWriter('./output/output_data.xdmf') as writer:
+        writer.write_points_cells(p, t)
+        for i in range(nt):
+            # if i > 0:  # remove the very first frame with linear elastic response only
+            writer.write_data(time[i],
+                              point_data={
+                                  data[0][0]['title'] + ', ' + data[0][0]['units']: data[0][0]['value'][:, i],
+                                  data[0][1]['title'] + ', ' + data[0][1]['units']: data[0][1]['value'][:, i],
+                                  data[1][0]['title'] + ', ' + data[1][0]['units']: data[1][0]['value'][:, i],
+                                  data[1][1]['title'] + ', ' + data[1][1]['units']: data[1][1]['value'][:, i],
+                                  data[1][2]['title'] + ', ' + data[1][2]['units']: data[1][2]['value'][:, i],
+                                  data[2][0]['title'] + ', ' + data[2][0]['units']: data[2][0]['value'][:, i],
+                                  data[2][1]['title'] + ', ' + data[2][1]['units']: data[2][1]['value'][:, i],
+                                  data[2][2]['title'] + ', ' + data[2][2]['units']: data[2][2]['value'][:, i],
+                                  data[3][0]['title'] + ', ' + data[3][0]['units']: data[3][0]['value'][:, i],
+                                  data[3][1]['title'] + ', ' + data[3][1]['units']: data[3][1]['value'][:, i],
+                                  data[4][0]['title'] + ', ' + data[4][0]['units']: data[4][0]['value'][:, i]
+                              })
+    print("Done writing results to *.xdmf files.")
+
+
 def save_plot(input, output, node):
     """Saves results for one particular point."""
 
@@ -593,42 +696,42 @@ def write_results2(nt, p, t, output, l, ext, exaggerate=False):
                 "units": '[-]',
                 "value": output['strain'][2 * nnodes:3 * nnodes]
             }
-        },
-        2: {
-            0: {
-                "title": 'stress_x',
-                "units": '[Pa]',
-                "value": output['stress'][:nnodes]
-            },
-            1: {
-                "title": 'stress_y',
-                "units": '[Pa]',
-                "value": output['stress'][nnodes:2 * nnodes]
-            },
-            2: {
-                "title": 'stress_shear',
-                "units": '[Pa]',
-                "value": output['stress'][2 * nnodes:3 * nnodes]
-            }
-        },
-        3: {
-            0: {
-                "title": 'von_mises_stress',
-                "units": '[Pa]',
-                "value": output['Von Mises stress'][:nnodes]
-            }
-        },
-        4: {
-            0: {
-                "title": 'creep_forces_x',
-                "units": '[N]',
-                "value": output['creep forces'][:nnodes]
-            },
-            1: {
-                "title": 'creep_forces_y',
-                "units": '[N]',
-                "value": output['creep forces'][nnodes:]
-            }
+            # },
+            # 2: {
+            #     0: {
+            #         "title": 'stress_x',
+            #         "units": '[Pa]',
+            #         "value": output['stress'][:nnodes]
+            #     },
+            #     1: {
+            #         "title": 'stress_y',
+            #         "units": '[Pa]',
+            #         "value": output['stress'][nnodes:2 * nnodes]
+            #     },
+            #     2: {
+            #         "title": 'stress_shear',
+            #         "units": '[Pa]',
+            #         "value": output['stress'][2 * nnodes:3 * nnodes]
+            #     }
+            # },
+            # 3: {
+            #     0: {
+            #         "title": 'von_mises_stress',
+            #         "units": '[Pa]',
+            #         "value": output['Von Mises stress'][:nnodes]
+            #     }
+            # },
+            # 4: {
+            #     0: {
+            #         "title": 'creep_forces_x',
+            #         "units": '[N]',
+            #         "value": output['creep forces'][:nnodes]
+            #     },
+            #     1: {
+            #         "title": 'creep_forces_y',
+            #         "units": '[N]',
+            #         "value": output['creep forces'][nnodes:]
+            #     }
         }
     }
 
@@ -637,7 +740,7 @@ def write_results2(nt, p, t, output, l, ext, exaggerate=False):
     elif nt == 1:
         iter = len(data) - 1
 
-    for k in range(iter):
+    for k in data.keys():
         var = data[k]
         for j in range(len(var)):
             folder = './output/'

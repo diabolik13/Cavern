@@ -189,8 +189,8 @@ def assemble_vector(p, t, nind_c, px=0, py=0):
         for i in range(3):
 
             # Applying Newman's B.C. on the right edge
-            # if x[i] == 1:
-            #     fe[j] = -1
+            # if x[i] == np.max(p[0]):
+            #     fe[j] = -1e6
             # j = j + 2
 
             # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
@@ -331,18 +331,20 @@ def plot_results(p, t, t1, t2, t3, u=0, strain=0, stress=0):
     plt.show()
 
 
-def plot_parameter(p, t, f):
+def plot_parameter(p, t, u, f, amp):
     # nnodes = p.shape[1]  # number of nodes
     f = f.reshape((len(p[0]),))
-    x = p[0, :]  # x-coordinates of nodes
-    y = p[1, :]  # y-coordinates of nodes
+    x = p[0]  # x-coordinates of nodes
+    y = p[1]  # y-coordinates of nodes
+    x = x + u[::2].reshape((len(p[0]),)) * amp
+    y = y + u[1::2].reshape((len(p[0]),)) * amp
 
     # Plot the triangulation.
     triang = mtri.Triangulation(x, y, t.transpose())
 
     # Set up the figure
     fig, axs = plt.subplots(nrows=1, ncols=1)
-    n = 50
+    n = 10
     lw = 0.2
 
     im = axs.tricontourf(triang, f, n, cmap='plasma')
@@ -480,11 +482,11 @@ def impose_dirichlet(k, f, d_bnd):
 
 def von_mises_stress(stress):
     dstress = deviatoric_stress(stress)
-    # stressx = stress[0, :]
-    # stressy = stress[1, :]
-    # stressxy = stress[2, :]
-    # svm = np.sqrt(np.square(stressx) - stressx * stressy + np.square(stressy) + 3 * np.square(stressxy))
-    svm = np.sqrt(3 / 2 * np.sum((np.transpose(dstress) * np.transpose(dstress)), axis=1))
+    stressx = stress[0]
+    stressy = stress[1]
+    stressxy = stress[2]
+    svm = np.sqrt(np.square(stressx) - stressx * stressy + np.square(stressy) + 3 * np.square(stressxy))
+    # svm = np.sqrt(3 / 2 * np.sum((np.transpose(dstress) * np.transpose(dstress)), axis=1))
 
     return svm
 
@@ -877,3 +879,21 @@ def calculate_creep_NR(input):
     print("Done.")
 
     return output
+
+
+def solve_disp(k, f):
+    return np.linalg.solve(k, f)
+
+
+def anl_disp(coords):
+    x, y = coords
+    u = np.ones((2 * len(x), 1))
+    u[::2] = (x + np.max(x)).reshape((len(x), 1)) ** 2
+    u[1::2] = y.reshape((len(y), 1)) ** 3
+
+    return u
+
+def hist(a):
+    plt.hist(a, bins='auto')
+    plt.title("Histogram with 'auto' bins")
+    plt.show()
