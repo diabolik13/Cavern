@@ -199,7 +199,7 @@ def assemble_vector(p, t, nind_c, px=0, py=0):
                 fe[2 * i + 1] = py[np.where(nind_c == node[i])]
 
         for i in range(6):
-            f[ind[i]] = fe[i]
+            f[ind[i]] += fe[i]
 
     return f
 
@@ -331,13 +331,13 @@ def plot_results(p, t, t1, t2, t3, u=0, strain=0, stress=0):
     plt.show()
 
 
-def plot_parameter(p, t, u, f, amp):
+def plot_parameter(p, t, f, folder, u=0, amp=0):
     # nnodes = p.shape[1]  # number of nodes
     f = f.reshape((len(p[0]),))
-    x = p[0]  # x-coordinates of nodes
-    y = p[1]  # y-coordinates of nodes
-    x = x + u[::2].reshape((len(p[0]),)) * amp
-    y = y + u[1::2].reshape((len(p[0]),)) * amp
+    x, y = p
+    if not (u == 0):
+        x = x + u[::2].reshape((len(p[0]),)) * amp
+        y = y + u[1::2].reshape((len(p[0]),)) * amp
 
     # Plot the triangulation.
     triang = mtri.Triangulation(x, y, t.transpose())
@@ -355,7 +355,8 @@ def plot_parameter(p, t, u, f, amp):
     divider = make_axes_locatable(axs)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
-    # plt.show()
+    plt.savefig('./output/' + folder + "/plot.png")
+    plt.show()
 
 
 def check_matrix(k):
@@ -429,7 +430,7 @@ def cavern_boundaries(m, p, pr, w):
     nind_c = np.array([], dtype='i')  # cavern nodes indexes
 
     for i in range(len(lines)):
-        if ph_group[i] == 4:
+        if ph_group[i] == 1:
             nind_c = np.append(nind_c, lines[i, :])
 
     nind_c = np.unique(nind_c)
@@ -729,7 +730,7 @@ def assemble_creep_forces_vector(dof, p, t, d, ecr, th):
         fcre = th * area * np.dot(np.transpose(b), np.dot(d, ecr[:, e]))
 
         for i in range(6):
-            fcr[ind[i]] = fcre[i]
+            fcr[ind[i]] += fcre[i]
 
     return fcr
 
@@ -892,6 +893,7 @@ def anl_disp(coords):
     u[1::2] = y.reshape((len(y), 1)) ** 3
 
     return u
+
 
 def hist(a):
     plt.hist(a, bins='auto')

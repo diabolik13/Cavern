@@ -266,14 +266,11 @@ def write_results_xdmf(input, output):
     print("Done writing results to *.xdmf files.")
 
 
-def write_results_xdmf2(nt, p, t, output):
+def write_results_xdmf2(nt, mesh, output, folder):
     """Saves results in one file in *.xdmf format for ParaView."""
+    from pathlib import Path
 
-    # nt = input['number of time steps']
-    # m = input['mesh data']
-    # p = input['points']
-
-    nnodes = len(p[0])
+    nnodes = mesh.nnodes()
 
     if nt > 1:
         time = np.round((output['elapsed time'] / 86400), 2)
@@ -348,8 +345,9 @@ def write_results_xdmf2(nt, p, t, output):
         }
     }
 
-    with meshio.xdmf.TimeSeriesWriter('./output/output_data.xdmf') as writer:
-        writer.write_points_cells(p, t)
+    Path('./output/' + folder).mkdir(parents=True, exist_ok=True)
+    with meshio.xdmf.TimeSeriesWriter('./output/' + folder + '/output_data.xdmf') as writer:
+        writer.write_points_cells(mesh.meshdata().points, mesh.meshdata().cells)
         for i in range(nt):
             # if i > 0:  # remove the very first frame with linear elastic response only
             writer.write_data(time[i],
@@ -366,7 +364,7 @@ def write_results_xdmf2(nt, p, t, output):
                                   data[3][1]['title'] + ', ' + data[3][1]['units']: data[3][1]['value'][:, i],
                                   data[4][0]['title'] + ', ' + data[4][0]['units']: data[4][0]['value'][:, i]
                               })
-    print("Done writing results to *.xdmf files.")
+    print("Done writing results to *.xdmf files in the ./" + folder + " folder.")
 
 
 def save_plot(input, output, node):

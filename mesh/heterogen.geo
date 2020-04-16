@@ -86,4 +86,5 @@ Physical Surface("mid") = {2};
 //+
 Physical Surface("bot") = {3};
 //+
-Physical Curve("cav") = {13, 5, 6, 7, 14};
+//+
+Physical Curve("cav", 11) = {13, 5, 6, 7, 14};
