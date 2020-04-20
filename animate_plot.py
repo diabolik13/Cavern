@@ -619,34 +619,6 @@ def save_plot2(input, output, node):
     print('Done writing results to the output files.')
 
 
-# def animate_parameter(nt, z, p, t, label):
-#     x = p[0, :]  # x-coordinates of nodes
-#     y = p[1, :]  # y-coordinates of nodes
-#     th = np.asarray(list(map(int, np.linspace(0, nt - 1, nt))))
-#     if nt > 50:
-#         th = np.asarray(list(map(int, np.linspace(0, nt - 1, 50))))
-#
-#     img = []
-#     triang = mtri.Triangulation(x, y, t.transpose())
-#     fig, ax = plt.subplots()
-#     ax.set_aspect('equal', 'box')
-#     fig.tight_layout()
-#     divider = make_axes_locatable(ax)
-#     cax = divider.append_axes("right", size="5%", pad=0.05)
-#     min_z = np.min(z)
-#     max_z = np.max(z)
-#
-#     for i in th:
-#         ax.set_title(label + ' in time step = ' + str(i))
-#         c = ax.tricontourf(triang, z[:, i], 10, cmap='plasma')
-#         c.set_clim(min_z, max_z)
-#         plt.colorbar(c, cax=cax)
-#         img.append(c.collections)
-#
-#     name = label + '.gif'
-#     anim_img = animation.ArtistAnimation(fig, img, interval=300, blit=True)
-#     anim_img.save(name, writer='imagemagick', bitrate=300)
-
 def write_results2(nt, p, t, output, l, ext, exaggerate=False):
     """
     Saves results in separate files in *.gif and *.png formats.
@@ -694,42 +666,42 @@ def write_results2(nt, p, t, output, l, ext, exaggerate=False):
                 "units": '[-]',
                 "value": output['strain'][2 * nnodes:3 * nnodes]
             }
-            # },
-            # 2: {
-            #     0: {
-            #         "title": 'stress_x',
-            #         "units": '[Pa]',
-            #         "value": output['stress'][:nnodes]
-            #     },
-            #     1: {
-            #         "title": 'stress_y',
-            #         "units": '[Pa]',
-            #         "value": output['stress'][nnodes:2 * nnodes]
-            #     },
-            #     2: {
-            #         "title": 'stress_shear',
-            #         "units": '[Pa]',
-            #         "value": output['stress'][2 * nnodes:3 * nnodes]
-            #     }
-            # },
-            # 3: {
-            #     0: {
-            #         "title": 'von_mises_stress',
-            #         "units": '[Pa]',
-            #         "value": output['Von Mises stress'][:nnodes]
-            #     }
-            # },
-            # 4: {
-            #     0: {
-            #         "title": 'creep_forces_x',
-            #         "units": '[N]',
-            #         "value": output['creep forces'][:nnodes]
-            #     },
-            #     1: {
-            #         "title": 'creep_forces_y',
-            #         "units": '[N]',
-            #         "value": output['creep forces'][nnodes:]
-            #     }
+        },
+        2: {
+            0: {
+                "title": 'stress_x',
+                "units": '[Pa]',
+                "value": output['stress'][:nnodes]
+            },
+            1: {
+                "title": 'stress_y',
+                "units": '[Pa]',
+                "value": output['stress'][nnodes:2 * nnodes]
+            },
+            2: {
+                "title": 'stress_shear',
+                "units": '[Pa]',
+                "value": output['stress'][2 * nnodes:3 * nnodes]
+            }
+        },
+        3: {
+            0: {
+                "title": 'von_mises_stress',
+                "units": '[Pa]',
+                "value": output['Von Mises stress'][:nnodes]
+            }
+        },
+        4: {
+            0: {
+                "title": 'creep_forces_x',
+                "units": '[N]',
+                "value": output['creep forces'][:nnodes]
+            },
+            1: {
+                "title": 'creep_forces_y',
+                "units": '[N]',
+                "value": output['creep forces'][nnodes:]
+            }
         }
     }
 

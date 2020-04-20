@@ -22,34 +22,48 @@ class Logger(object):
 sys.stdout = Logger("log.txt")
 time_start = time.time()
 
+# c1 = 0.5
+# c2 = - np.pi / 2
+c1 = 1
+c2 = - np.pi / 2
+
 a = 1e-25  # creep material constant, [Pa]^n
 n = 5  # creep material constant, [-]
 temp = 343  # temperature, [K]
 q = 35000  # creep activation energy, [cal/mol]
 r = 1.987  # gas constant, [cal/(mol*K)]
-mu = [12e9, 1.6e9, 12e9]  # Shear modulus, [Pa]
-kb = [21e9, 10e9, 21e9]  # Bulk modulus, [Pa]
+mu = np.array([12e9, 12e9, 12e9])  # Shear modulus, [Pa]
+kb = np.array([21e9, 21e9, 21e9])  # Bulk modulus, [Pa]
+lamda = kb - 2 / 3 * mu
 th = 1  # thickness of the domain, [m]
 w = 1  # cavern's width, [m]
 pr = -13e6  # difference between cavern's and lithostatic pressure, [Pa]
 nt = 50  # number of time steps, [-]
 dt = 31536000e-2  # time step, [s]
+d = np.array([[lamda[0] + 2 * mu[0], lamda[0], 0],
+              [lamda[0], lamda[0] + 2 * mu[0], 0],
+              [0, 0, mu[0]]])
 
-filename = 'heterogen.msh'
-mesh = Mesh('./mesh/' + filename, 5e2, 5e2)
+filename = 'rect.msh'
+mesh = Mesh('./mesh/' + filename, 1, 1)
+anl_solution = anl(c1, c2)
+u_anl = anl_solution.evaluate_displacement(mesh)
+strain = anl_solution.evaluate_strain(mesh)
+fo = anl_solution.evaluate_forces(mesh, lamda[0], mu[0])
 
 sfns = Shapefns()
 V = FunctionSpace(mesh, sfns, mu, kb)
 k = V.stiff_matrix(th)
-fo = V.load_vector2(pr, w)
-d_bnd = mesh.extract_bnd(lx=True, ly=None,
-                         rx=True, ry=None,
-                         bx=None, by=True,
-                         tx=None, ty=True)
-k, fo = impose_dirichlet(k, fo, d_bnd)
+ko = assemble_stiffness_matrix(2, mesh.coordinates(), mesh.cells(), d, th)
+# fo = V.load_vector2(pr, w)
+d_bnd = mesh.extract_bnd(lx=True, ly=True,
+                         rx=True, ry=True,
+                         bx=True, by=True,
+                         tx=True, ty=True)
+k, fo = impose_dirichlet(ko, fo, d_bnd)
 u = solve_disp(k, fo)
-plot_parameter(mesh.coordinates(), mesh.cells(), fo[::2], filename.split(".")[0])
-plot_parameter(mesh.coordinates(), mesh.cells(), fo[1::2], filename.split(".")[0])
+# plot_parameter(mesh, fo[::2], filename.split(".")[0])
+# plot_parameter(mesh, fo[1::2], filename.split(".")[0])
 
 straing = V.gauss_strain(u)
 strain = V.nodal_extrapolation(straing)

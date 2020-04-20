@@ -331,9 +331,10 @@ def plot_results(p, t, t1, t2, t3, u=0, strain=0, stress=0):
     plt.show()
 
 
-def plot_parameter(p, t, f, folder, u=0, amp=0):
-    # nnodes = p.shape[1]  # number of nodes
-    f = f.reshape((len(p[0]),))
+def plot_parameter(mesh, f, folder=None, u=0, amp=0):
+    p = mesh.coordinates()
+    t = mesh.cells()
+    f = f.reshape((mesh.nnodes(),))
     x, y = p
     if not (u == 0):
         x = x + u[::2].reshape((len(p[0]),)) * amp
@@ -355,7 +356,8 @@ def plot_parameter(p, t, f, folder, u=0, amp=0):
     divider = make_axes_locatable(axs)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
-    plt.savefig('./output/' + folder + "/plot.png")
+    if folder == (not None):
+        plt.savefig('./output/' + folder + "/plot.png")
     plt.show()
 
 
@@ -396,15 +398,6 @@ def load_mesh(mesh_filename):
         # warnings.showwarning('Mesh type is not recognized')
 
     return m, p, t
-
-
-# def list_duplicates(seq):
-#     seen = set()
-#     seen_add = seen.add
-#     # adds all elements it doesn't know yet to seen and all other to seen_twice
-#     seen_twice = set(x for x in seq if x in seen or seen_add(x))
-#     # turn the set into a list (as requested)
-#     return list(seen_twice)
 
 
 def cavern_boundaries(m, p, pr, w):
@@ -695,22 +688,6 @@ def dfunc(p):
     duydy = 1e3 * np.pi * np.sin(np.pi * x) * np.cos(np.pi * y)
 
     return ux, uy, duxdx, duydy
-
-
-# def creep_forces(strain_cr, p, t, mu, lamda):
-#     """Calculates creep forces as tABDE."""
-#
-#     nnodes = len(p[0])
-#     xdx, xdy = calc_derivative(strain_cr[0], p, t)
-#     ydx, ydy = calc_derivative(strain_cr[1], p, t)
-#     sdx, sdy = calc_derivative(strain_cr[2], p, t)
-#     fcrx = ((2 * mu + lamda) * xdx + lamda * ydx + mu * sdy).reshape(nnodes, 1)
-#     fcry = ((2 * mu + lamda) * ydy + lamda * xdy + mu * sdx).reshape(nnodes, 1)
-#     f_cr = np.empty((fcrx.size + fcry.size, 1), dtype=fcrx.dtype)
-#     f_cr[0::2] = fcrx
-#     f_cr[1::2] = fcry
-#
-#     return f_cr
 
 
 def assemble_creep_forces_vector(dof, p, t, d, ecr, th):
