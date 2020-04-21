@@ -46,21 +46,21 @@ d = np.array([[lamda[0] + 2 * mu[0], lamda[0], 0],
 
 filename = 'rect.msh'
 mesh = Mesh('./mesh/' + filename, 1, 1)
-anl_solution = anl(c1, c2)
-u_anl = anl_solution.evaluate_displacement(mesh)
-strain = anl_solution.evaluate_strain(mesh)
-fo = anl_solution.evaluate_forces(mesh, lamda[0], mu[0])
+# anl_solution = anl(c1, c2)
+# u_anl = anl_solution.evaluate_displacement(mesh)
+# strain = anl_solution.evaluate_strain(mesh)
+# f_anl = anl_solution.evaluate_forces(mesh, lamda[0], mu[0])
 
 sfns = Shapefns()
 V = FunctionSpace(mesh, sfns, mu, kb)
 k = V.stiff_matrix(th)
-ko = assemble_stiffness_matrix(2, mesh.coordinates(), mesh.cells(), d, th)
-# fo = V.load_vector2(pr, w)
-d_bnd = mesh.extract_bnd(lx=True, ly=True,
-                         rx=True, ry=True,
-                         bx=True, by=True,
-                         tx=True, ty=True)
-k, fo = impose_dirichlet(ko, fo, d_bnd)
+# ko = assemble_stiffness_matrix(2, mesh.coordinates(), mesh.cells(), d, th)
+fo = V.load_vector2(pr, w)
+d_bnd = mesh.extract_bnd(lx=True, ly=False,
+                         rx=False, ry=True,
+                         bx=False, by=True,
+                         tx=False, ty=True)
+k, fo = impose_dirichlet(k, fo, d_bnd)
 u = solve_disp(k, fo)
 # plot_parameter(mesh, fo[::2], filename.split(".")[0])
 # plot_parameter(mesh, fo[1::2], filename.split(".")[0])

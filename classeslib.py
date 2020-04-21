@@ -160,21 +160,21 @@ class Mesh(object):
                 t_bnd_y = np.append(t_bnd_y, i * 2 + 1)
 
         # d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
-        if not (lx == None):
+        if not (lx == False):
             d_bnd = np.concatenate((d_bnd, l_bnd_x))
-        if not (ly == None):
+        if not (ly == False):
             d_bnd = np.concatenate((d_bnd, l_bnd_y))
-        if not (rx == None):
+        if not (rx == False):
             d_bnd = np.concatenate((d_bnd, r_bnd_x))
-        if not (ry == None):
+        if not (ry == False):
             d_bnd = np.concatenate((d_bnd, r_bnd_y))
-        if not (bx == None):
+        if not (bx == False):
             d_bnd = np.concatenate((d_bnd, b_bnd_x))
-        if not (by == None):
+        if not (by == False):
             d_bnd = np.concatenate((d_bnd, b_bnd_y))
-        if not (tx == None):
+        if not (tx == False):
             d_bnd = np.concatenate((d_bnd, t_bnd_x))
-        if not (ty == None):
+        if not (ty == False):
             d_bnd = np.concatenate((d_bnd, t_bnd_y))
 
         return d_bnd
@@ -493,27 +493,28 @@ class FunctionSpace(object):
         pg = np.unique(self.__mesh.group())
         node_ind = self.__mesh.edges()  # nodes indexes of an element's edge
         f = np.zeros((2 * nnodes, 1))
-        px, py, nind_c = cavern_boundaries()
+        # px, py, nind_c = cavern_boundaries()
 
         for elt in self.__elts:
             node = elt.nodes()
             ind = elt.dofnos()
             fe = np.zeros(6)
             j = 0
+            area = elt.area()
 
             for i in range(3):
 
                 # Applying Newman's B.C. on the right edge
-                # if x[node[i]] == np.max(x):
-                #     fe[j] = -1
-                # j = j + 2
+                if x[node[i]] == np.max(x):
+                    fe[j] += -1e6
+                j = j + 2
 
                 # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
-                if node[i] in nind_c:
-                    fe[2 * i] = px[np.where(nind_c == node[i])]
-                    fe[2 * i + 1] = py[np.where(nind_c == node[i])]
+                # if node[i] in nind_c:
+                #     fe[2 * i] += area /3 * px[np.where(nind_c == node[i])]
+                #     fe[2 * i + 1] += area /3 * py[np.where(nind_c == node[i])]
 
-            f[ind] = fe.reshape((6, 1))
+            f[ind] += area / 3 * fe.reshape((6, 1))
 
         return f
 
