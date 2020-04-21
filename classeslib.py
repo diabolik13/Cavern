@@ -506,7 +506,7 @@ class FunctionSpace(object):
 
                 # Applying Newman's B.C. on the right edge
                 if x[node[i]] == np.max(x):
-                    fe[j] += -1e6
+                    fe[j] += -1e6 * w
                 j = j + 2
 
                 # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
@@ -514,7 +514,7 @@ class FunctionSpace(object):
                 #     fe[2 * i] += area /3 * px[np.where(nind_c == node[i])]
                 #     fe[2 * i + 1] += area /3 * py[np.where(nind_c == node[i])]
 
-            f[ind] += area / 3 * fe.reshape((6, 1))
+            f[ind] = fe.reshape((6, 1))
 
         return f
 
@@ -538,8 +538,8 @@ class FunctionSpace(object):
                 ind = elt.dofnos()
                 B = self.strain_disp_matrix(elt.eltno())
                 D = elt.el_tenz()
-                fcre = th * area * np.dot(np.transpose(B), np.dot(D, strain_crg[:, elt.eltno()]))
-                fcr[ind] = fcre.reshape((6, 1))
+                fcre = th * area / 3 * np.dot(np.transpose(B), np.dot(D, strain_crg[:, elt.eltno()]))
+                fcr[ind] += fcre.reshape((6, 1))
 
             return fcr
 

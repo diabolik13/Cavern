@@ -36,7 +36,7 @@ mu = np.array([12e9, 12e9, 12e9])  # Shear modulus, [Pa]
 kb = np.array([21e9, 21e9, 21e9])  # Bulk modulus, [Pa]
 lamda = kb - 2 / 3 * mu
 th = 1  # thickness of the domain, [m]
-w = 1  # cavern's width, [m]
+# w = 1  # cavern's width, [m]
 pr = -13e6  # difference between cavern's and lithostatic pressure, [Pa]
 nt = 50  # number of time steps, [-]
 dt = 31536000e-2  # time step, [s]
@@ -44,8 +44,8 @@ d = np.array([[lamda[0] + 2 * mu[0], lamda[0], 0],
               [lamda[0], lamda[0] + 2 * mu[0], 0],
               [0, 0, mu[0]]])
 
-filename = 'rect.msh'
-mesh = Mesh('./mesh/' + filename, 1, 1)
+filename = 'testcase.msh'
+mesh = Mesh('./mesh/' + filename, 1e3, 1e3)
 # anl_solution = anl(c1, c2)
 # u_anl = anl_solution.evaluate_displacement(mesh)
 # strain = anl_solution.evaluate_strain(mesh)
@@ -55,14 +55,14 @@ sfns = Shapefns()
 V = FunctionSpace(mesh, sfns, mu, kb)
 k = V.stiff_matrix(th)
 # ko = assemble_stiffness_matrix(2, mesh.coordinates(), mesh.cells(), d, th)
-fo = V.load_vector2(pr, w)
+fo = V.load_vector2(pr, th)
 d_bnd = mesh.extract_bnd(lx=True, ly=False,
                          rx=False, ry=True,
                          bx=False, by=True,
                          tx=False, ty=True)
 k, fo = impose_dirichlet(k, fo, d_bnd)
 u = solve_disp(k, fo)
-# plot_parameter(mesh, fo[::2], filename.split(".")[0])
+plot_parameter(mesh, fo[::2], filename.split(".")[0])
 # plot_parameter(mesh, fo[1::2], filename.split(".")[0])
 
 straing = V.gauss_strain(u)
