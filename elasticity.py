@@ -7,6 +7,7 @@ import sys
 import warnings
 
 from matplotlib import cm
+from mpl_toolkits.axes_grid1 import AxesGrid
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.io import loadmat
 # from sympy import *
@@ -29,8 +30,8 @@ def load_input(mesh_filename, c1, c2):
     nt = 1  # number of time steps, [-]
     a = 1e-21  # creep material constant, [Pa]^n
     n = 5  # creep material constant, [-]
-    th = 1e3  # thickness of the model in z, [m]
-    w = 1e2  # cavern width in z, [m]
+    th = 1  # thickness of the model in z, [m]
+    w = 1  # cavern width in z, [m]
     dt = 31536000e-2  # time step, [s]
     c = 0  # wave number, frequency of loading cycles control, [-]
     cfl = 0.5  # CFL
@@ -171,15 +172,15 @@ def extract_bnd(p, dof):
     for node in range(nnodes):
         if p[0][node] == min(p[0]):
             l_bnd = np.append(l_bnd, node * dof)
-            # l_bnd = np.append(l_bnd, node * dof + 1)
+            l_bnd = np.append(l_bnd, node * dof + 1)
         if p[1][node] == min(p[1]):
-            # b_bnd = np.append(b_bnd, node * dof)
+            b_bnd = np.append(b_bnd, node * dof)
             b_bnd = np.append(b_bnd, node * dof + 1)
         if p[0][node] == max(p[0]):
             r_bnd = np.append(r_bnd, node * dof)
-            # r_bnd = np.append(r_bnd, node * dof + 1)
+            r_bnd = np.append(r_bnd, node * dof + 1)
         if p[1][node] == max(p[1]):
-            # t_bnd = np.append(t_bnd, node * dof)
+            t_bnd = np.append(t_bnd, node * dof)
             t_bnd = np.append(t_bnd, node * dof + 1)
 
     # d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
@@ -269,7 +270,7 @@ def assemble_vector(p, t, px, py, th, simple):
                 fe[2 * i + 1] = fe[2 * i + 1] + th * area / 3 * py[node[i]]
 
         for i in range(6):
-            f[ind[i]] = fe[i]
+            f[ind[i]] += fe[i]
             # f[ind[i]] = f[ind[i]] + fe[i]
 
     return f
@@ -1030,6 +1031,14 @@ def calculate_creep_NR(input):
 def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y, t, i):
     fig, ax = plt.subplots(nrows=4, ncols=3)
 
+    # grid = AxesGrid(fig, 111,
+    #                 nrows_ncols=(4, 3),
+    #                 axes_pad=0.05,
+    #                 cbar_mode='single',
+    #                 cbar_location='right',
+    #                 cbar_pad=0.1
+    #                 )
+
     z = u[:nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[0, 0])
     cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -1039,6 +1048,11 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[0, 0].set_title('Num Displacement X')
+    ax[0, 0].axis('off')
+    # ax[0, 0].set_ylabel('y')
+    # ax[0, 0].set_xlabel('x')
+    # ax[0, 0].set_yticklabels([])
+    # ax[0, 0].set_xticklabels([])
 
     z = u[nnodes:2 * nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[1, 0])
@@ -1049,6 +1063,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[1, 0].set_title('Num Displacement Y')
+    ax[1, 0].axis('off')
 
     z = strain[:nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[0, 1])
@@ -1059,6 +1074,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[0, 1].set_title('Num Strain X')
+    ax[0, 1].axis('off')
 
     z = strain[nnodes:2 * nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[1, 1])
@@ -1069,6 +1085,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[1, 1].set_title('Num Strain Y')
+    ax[1, 1].axis('off')
 
     z = stress[:nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[0, 2])
@@ -1079,6 +1096,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[0, 2].set_title('Num Stress X')
+    ax[0, 2].axis('off')
 
     z = stress[nnodes:2 * nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[1, 2])
@@ -1089,6 +1107,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[1, 2].set_title('Num Stress Y')
+    ax[1, 2].axis('off')
 
     z = u_anl[:nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[2, 0])
@@ -1099,6 +1118,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[2, 0].set_title('Anl Displacement X')
+    ax[2, 0].axis('off')
 
     z = u_anl[nnodes:2 * nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[3, 0])
@@ -1109,6 +1129,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[3, 0].set_title('Anl Displacement Y')
+    ax[3, 0].axis('off')
 
     z = strain_anl[:nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[2, 1])
@@ -1119,6 +1140,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[2, 1].set_title('Anl Strain X')
+    ax[2, 1].axis('off')
 
     z = strain_anl[nnodes:2 * nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[3, 1])
@@ -1129,6 +1151,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[3, 1].set_title('Anl Strain Y')
+    ax[3, 1].axis('off')
 
     z = stress_anl[:nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[2, 2])
@@ -1139,6 +1162,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[2, 2].set_title('Anl Stress X')
+    ax[2, 2].axis('off')
 
     z = stress_anl[nnodes:2 * nnodes].reshape((nnodes,))
     divider = make_axes_locatable(ax[3, 2])
@@ -1149,6 +1173,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[3, 2].set_title('Anl Stress Y')
+    ax[3, 2].axis('off')
 
     fig.tight_layout(pad=0.1)
     plt.savefig('./results/solution_results_' + str(i) + '.png')
@@ -1167,6 +1192,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[0, 0].set_title('Diff Displacement X')
+    ax[0, 0].axis('off')
 
     z = u[nnodes:2 * nnodes].reshape((nnodes,)) - u_anl[nnodes:2 * nnodes].reshape((nnodes,))
     z = abs(z)
@@ -1178,6 +1204,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[1, 0].set_title('Diff Displacement Y')
+    ax[1, 0].axis('off')
 
     z = strain[:nnodes].reshape((nnodes,)) - strain_anl[:nnodes].reshape((nnodes,))
     z = abs(z)
@@ -1189,6 +1216,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[0, 1].set_title('Diff Strain X')
+    ax[0, 1].axis('off')
 
     z = strain[nnodes:2 * nnodes].reshape((nnodes,)) - strain_anl[nnodes:2 * nnodes].reshape((nnodes,))
     z = abs(z)
@@ -1200,6 +1228,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[1, 1].set_title('Diff Strain Y')
+    ax[1, 1].axis('off')
 
     z = stress[:nnodes].reshape((nnodes,)) - stress_anl[:nnodes].reshape((nnodes,))
     z = abs(z)
@@ -1211,6 +1240,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[0, 2].set_title('Diff Stress X')
+    ax[0, 2].axis('off')
 
     z = stress[nnodes:2 * nnodes].reshape((nnodes,)) - stress_anl[nnodes:2 * nnodes].reshape((nnodes,))
     z = abs(z)
@@ -1222,6 +1252,7 @@ def plot_results(u, u_anl, strain, strain_anl, stress, stress_anl, nnodes, x, y,
                              levels=np.linspace(np.min(z), np.max(z), 30))
     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
     ax[1, 2].set_title('Diff Stress Y')
+    ax[1, 2].axis('off')
 
     fig.tight_layout(pad=0.1)
     plt.savefig('./results/solution_difference_' + str(i) + '.png')
