@@ -331,7 +331,7 @@ def plot_results(p, t, t1, t2, t3, u=0, strain=0, stress=0):
     plt.show()
 
 
-def plot_parameter(mesh, f, folder=None, u=0, amp=0):
+def plot_parameter(mesh, f, folder=None, u=0, amp=0, l=10):
     p = mesh.coordinates()
     t = mesh.cells()
     f = f.reshape((mesh.nnodes(),))
@@ -345,10 +345,9 @@ def plot_parameter(mesh, f, folder=None, u=0, amp=0):
 
     # Set up the figure
     fig, axs = plt.subplots(nrows=1, ncols=1)
-    n = 10
     lw = 0.2
 
-    im = axs.tricontourf(triang, f, n, cmap='plasma')
+    im = axs.tricontourf(triang, f, l, cmap='plasma')
     axs.triplot(triang, lw=lw)
     axs.set_title('Plot')
     axs.set_aspect('equal', 'box')

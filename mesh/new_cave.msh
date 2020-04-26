@@ -3,12 +3,12 @@ $MeshFormat
 $EndMeshFormat
 $PhysicalNames
 6
-1 1 "cave"
+1 11 "cave"
 1 2 "top"
 1 3 "right"
 1 4 "left"
 1 5 "bottom"
-2 6 "interior"
+2 1 "interior"
 $EndPhysicalNames
 $Nodes
 552

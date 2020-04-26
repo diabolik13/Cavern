@@ -31,7 +31,7 @@ class Mesh(object):
     size(): returns number of elements
     """
 
-    def __init__(self, filename, xfactor=1, yfactor=1):
+    def __init__(self, filename, xfactor=1, yfactor=1, u=None):
         """
         N is the number of elements = number of INTERVALS
         a and b are interval endpoints
@@ -41,31 +41,34 @@ class Mesh(object):
         #  Coordinates
         m.points[:, 0] *= xfactor
         m.points[:, 1] *= yfactor
-        self.__nodes = m.points
+
+        if not (u is None):
+            m.points[:, 0] += u[::2]
+            m.points[:, 1] += u[1::2]
+
+        self.__mesh = m
+        self.__nodes = self.__mesh.points
         self.__nodes = np.delete(self.__nodes, 2, axis=1)
         self.__nodes = self.__nodes.transpose()
 
         #  Elements
-        self.__cells = m.cells["triangle"].transpose()
+        self.__cells = self.__mesh.cells["triangle"].transpose()
         self.__N = len(self.__cells[0])
 
         #  Nodes and dofs
-        self.__Nnodes = len(m.points)
+        self.__Nnodes = len(self.__mesh.points)
         self.__Ndofs = self.__Nnodes * 2
 
         #  Physical groups
-        self.__group = m.cell_data['line']['gmsh:physical']
-        self.__pg = m.cell_data["triangle"]["gmsh:physical"]
+        self.__edge_pg = self.__mesh.cell_data['line']['gmsh:physical']
+        self.__ele_pg = self.__mesh.cell_data["triangle"]["gmsh:physical"]
 
         #  Edges
-        self.__edges = m.cells['line']
+        self.__edges = self.__mesh.cells['line']
 
         # lines and cells
-        self.__cellsdata = m.cells
-        self.__pointsdata = m.points
-
-        # mesh
-        self.__mesh = m
+        self.__cellsdata = self.__mesh.cells
+        self.__pointsdata = self.__mesh.points
 
     def meshdata(self):
         return self.__mesh
@@ -102,9 +105,9 @@ class Mesh(object):
     def group(self, n=None):
 
         if not (n is None):
-            return self.__group[n]
+            return self.__edge_pg[n]
         else:
-            return self.__group
+            return self.__edge_pg
 
     def edges(self, n=None):
 
@@ -116,16 +119,27 @@ class Mesh(object):
     def line_ph_group(self, n=None):
 
         if not (n is None):
-            return self.__group[n]
+            return self.__edge_pg[n]
         else:
-            return self.__group
+            return self.__edge_pg
 
     def cell_ph_group(self, n=None):
 
         if not (n is None):
-            return self.__pg[n]
+            return self.__ele_pg[n]
         else:
-            return self.__pg
+            return self.__ele_pg
+
+    def litho_bnd(self):
+        t_bnd_y = np.array([], dtype='i')
+        r_bnd_x = np.array([], dtype='i')
+        x, y = self.__nodes
+        for i in range(self.__Nnodes):
+            if x[i] == np.max(x):
+                r_bnd_x = np.append(r_bnd_x, i)
+            if y[i] == np.max(y):
+                t_bnd_y = np.append(t_bnd_y, i)
+        return t_bnd_y, r_bnd_x
 
     def extract_bnd(self, lx=None, ly=None, rx=None, ry=None, tx=None, ty=None, bx=None, by=None):
         """
@@ -142,8 +156,7 @@ class Mesh(object):
         t_bnd_x = np.array([], dtype='i')
         t_bnd_y = np.array([], dtype='i')
         d_bnd = np.array([], dtype='i')
-        x = self.__nodes[0]
-        y = self.__nodes[1]
+        x, y = self.__nodes
 
         for i in range(self.__Nnodes):
             if x[i] == np.min(x):
@@ -178,6 +191,13 @@ class Mesh(object):
             d_bnd = np.concatenate((d_bnd, t_bnd_y))
 
         return d_bnd
+
+    # @classmethod
+    def update_mesh(self, u):
+        self.__nodes[0] += np.transpose(u[::2].reshape((self.__Nnodes,)))
+        self.__nodes[1] += np.transpose(u[::2].reshape((self.__Nnodes,)))
+        self.__pointsdata[:, 0] += np.transpose(u[::2].reshape((self.__Nnodes,)))
+        self.__pointsdata[:, 1] += np.transpose(u[::2].reshape((self.__Nnodes,)))
 
 
 class Shapefns(object):
@@ -391,7 +411,7 @@ class FunctionSpace(object):
         B = np.delete(B, [0, 1], axis=1)
         return B
 
-    def stiff_matrix(self, th):
+    def stiff_matrix(self, th=1):
         """
         assemble stiffness matrix
         :return:
@@ -408,117 +428,56 @@ class FunctionSpace(object):
             k[ixgrid] += ke
         return k
 
-    def load_vector2(self, pr, w):
+    def load_vector(self, p, th, pressure, boundary):
         """
         assemble load vector
         :return:
         """
+        x, y = self.__mesh.coordinates()
+        if boundary == 'cavern':
+            d, alpha = self.nodal_forces()
+            nind_c, nind_c1, nind_c2 = self.cavern_nodes_ind()
+            d_cav_top = max(y) - max(y[nind_c])
+            d_cav_bot = max(y) - min(y[nind_c])
+            pc_min = 0.2 * p * d_cav_bot  # minimum allowable cavern pressure, [Pa]
+            pc_max = 0.8 * p * d_cav_top  # maximum allowable cavern pressure, [Pa]
+            if pressure == 'max':
+                pc = pc_max
+            elif pressure == 'min':
+                pc = pc_min
+        # else:
+        #     dr, dt = self.litho_forces_interface()
+        #     nind_t, nind_r = self.__mesh.litho_bnd()
 
-        def cavern_boundaries():
-            """
-            Calculate nodal forces on the domain's boundaries.
-            """
-
-            nind_c1 = np.array([], dtype='i')  # 1 cavern nodes indexes
-            nind_c2 = np.array([], dtype='i')  # 2 cavern nodes indexes
-
-            for i in range(len(node_ind)):
-                if len(pg) == 2:
-                    if ph_group[i] == pg[0]:  # 1 Cavern's wall nodes group
-                        nind_c1 = np.append(nind_c1, node_ind[i, :])
-                    if ph_group[i] == pg[1]:  # 2 Cavern's wall nodes group
-                        nind_c2 = np.append(nind_c2, node_ind[i, :])
-                elif len(pg) == 1:
-                    if ph_group[i] == pg[0]:
-                        nind_c1 = np.append(nind_c1, node_ind[i, :])
-
-            nind_c1 = np.unique(nind_c1)
-            nind_c2 = np.unique(nind_c2)
-            alpha = np.array([])
-            d = np.array([])
-            nind_c = np.concatenate((nind_c1, nind_c2), axis=0)
-
-            for i in nind_c:
-                index = np.where((node_ind == i))[0]
-                nindex = node_ind[index].flatten()
-                seen = set([i])
-                neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
-
-                if x[i] < max(x) and x[i] > min(x):
-                    alpha1 = np.arctan((x[neighbours[0]] - x[i]) / (y[i] - y[neighbours[0]]))
-                    alpha2 = np.arctan((x[i] - x[neighbours[1]]) / (y[neighbours[1]] - y[i]))
-                    d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
-                    d2 = np.sqrt((x[i] - x[neighbours[1]]) ** 2 + (y[i] - y[neighbours[1]]) ** 2)
-                    d = np.append(d, (d1 + d2) / 2)
-                    if i in nind_c1:
-                        alpha = np.append(alpha, ((alpha1 + alpha2) / 2))
-                    elif i in nind_c2:
-                        alpha = np.append(alpha, -np.pi + ((alpha1 + alpha2) / 2))
-
-                elif x[i] == min(x):
-                    if y[i] > 0:
-                        alpha = np.append(alpha, np.pi / 2)
-                        d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
-                        d = np.append(d, d1)
-                    elif y[i] < 0:
-                        alpha = np.append(alpha, -np.pi / 2)
-                        d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
-                        d = np.append(d, d1)
-
-                elif x[i] == max(x):
-                    if y[i] > 0:
-                        alpha = np.append(alpha, np.pi / 2)
-                        d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
-                        d = np.append(d, d1)
-                    elif y[i] < 0:
-                        alpha = np.append(alpha, -np.pi / 2)
-                        d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
-                        d = np.append(d, d1)
-
-            # alpha_deg = np.degrees(alpha)
-            # alpha_deg = np.column_stack((alpha_deg, nind_c))
-            px = pr * np.cos(alpha) * d * w
-            py = pr * np.sin(alpha) * d * w
-            px = np.reshape(px, (len(px), 1))
-            py = np.reshape(py, (len(py), 1))
-
-            px[abs(px) < 0.001] = 0
-            py[abs(py) < 0.001] = 0
-
-            return px, py, nind_c
-
-        x, y = self.__mesh.coordinates()  # nodal coordinates
-        nnodes = self.__nnodes  # number of nodes
-        ph_group = self.__mesh.group()  # physical group of a line
-        pg = np.unique(self.__mesh.group())
-        node_ind = self.__mesh.edges()  # nodes indexes of an element's edge
-        f = np.zeros((2 * nnodes, 1))
-        # px, py, nind_c = cavern_boundaries()
+        f = np.zeros((2 * self.__nnodes, 1))
 
         for elt in self.__elts:
             node = elt.nodes()
             ind = elt.dofnos()
             fe = np.zeros(6)
-            j = 0
-            area = elt.area()
 
             for i in range(3):
-
-                # Applying Newman's B.C. on the right edge
-                if x[node[i]] == np.max(x):
-                    fe[j] += -1e6 * w
-                j = j + 2
-
+                # Applying lithostatic Newman's B.C. on top and right edges
+                if boundary == 'cavern':
+                    if node[i] in nind_c:
+                        dp = (pc - p * (max(y) - y[node[i]])) * d[np.where(nind_c == node[i])] * th
+                        fe[2 * i] += dp * np.cos(alpha[np.where(nind_c == node[i])])
+                        fe[2 * i + 1] += dp * np.sin(alpha[np.where(nind_c == node[i])])
                 # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
-                # if node[i] in nind_c:
-                #     fe[2 * i] += area /3 * px[np.where(nind_c == node[i])]
-                #     fe[2 * i + 1] += area /3 * py[np.where(nind_c == node[i])]
+                # if boundary == 'right':
+                #     if node[i] in nind_r:
+                #         plx = p * (depth + np.max(y) - y[node[i]]) * dr
+                #         fe[2 * i] += -plx[np.where(nind_r == node[i])]
+                # if boundary == 'top':
+                #     if node[i] in nind_t:
+                #         ply = p * depth * dt
+                #         fe[2 * i + 1] += -ply[np.where(nind_t == node[i])]
 
             f[ind] = fe.reshape((6, 1))
 
         return f
 
-    def creep_load_vector2(self, dt, th, a, n, q, r, temp, stress, strain_crg):
+    def creep_load_vector(self, dt, a, n, q, r, temp, stress, strain_crg, th=1):
         """
         assemble creep load vector
         :return:
@@ -538,7 +497,7 @@ class FunctionSpace(object):
                 ind = elt.dofnos()
                 B = self.strain_disp_matrix(elt.eltno())
                 D = elt.el_tenz()
-                fcre = th * area / 3 * np.dot(np.transpose(B), np.dot(D, strain_crg[:, elt.eltno()]))
+                fcre = 1 / 2 * th * area * np.dot(np.transpose(B), np.dot(D, strain_crg[:, elt.eltno()]))
                 fcr[ind] += fcre.reshape((6, 1))
 
             return fcr
@@ -595,6 +554,155 @@ class FunctionSpace(object):
             stressg[:, elt.eltno()] = np.dot(elt.el_tenz(), straing[:, elt.eltno()])
 
         return stressg
+
+    def cavern_nodes_ind(self):
+        """
+        Extract indexes of the cavern's boundary nodes.
+        """
+        ph_group = self.__mesh.group()  # physical group of a line
+        pg = np.unique(self.__mesh.group())
+        pg = pg[pg < 13]  # cavern(s) index is represented by physical group 11 (and 12 in case of 2 caverns)
+        node_ind = self.__mesh.edges()
+        nind_c1 = np.array([], dtype='i')  # 1 cavern nodes indexes
+        nind_c2 = np.array([], dtype='i')  # 2 cavern nodes indexes
+
+        for i in range(len(node_ind)):
+            if len(pg) == 2:
+                if ph_group[i] == pg[0]:  # 1st Cavern's wall nodes group
+                    nind_c1 = np.append(nind_c1, node_ind[i, :])
+                if ph_group[i] == pg[1]:  # 2nd Cavern's wall nodes group
+                    nind_c2 = np.append(nind_c2, node_ind[i, :])
+            elif len(pg) == 1:  # only 1 cavern present
+                if ph_group[i] == pg[0]:
+                    nind_c1 = np.append(nind_c1, node_ind[i, :])
+
+        nind_c1 = np.unique(nind_c1)
+        nind_c2 = np.unique(nind_c2)
+        nind_c = np.concatenate((nind_c1, nind_c2), axis=0)
+
+        return nind_c, nind_c1, nind_c2
+
+    def nodal_forces(self, pr=1, w=1):
+        """
+        Evaluate x and y component of nodal forces on the cavern's wall
+        :return:
+        """
+        nind_c, nind_c1, nind_c2 = self.cavern_nodes_ind()
+        node_ind = self.__mesh.edges()
+        x, y = self.__mesh.coordinates()
+        d = np.array([])
+        alpha = np.array([])
+
+        for i in nind_c:
+            index = np.where((node_ind == i))[0]
+            nindex = node_ind[index].flatten()
+            seen = set([i])
+            neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
+
+            if x[i] < max(x) and x[i] > min(x):
+                alpha1 = np.arctan((x[neighbours[0]] - x[i]) / (y[i] - y[neighbours[0]]))
+                alpha2 = np.arctan((x[i] - x[neighbours[1]]) / (y[neighbours[1]] - y[i]))
+                d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
+                d2 = np.sqrt((x[i] - x[neighbours[1]]) ** 2 + (y[i] - y[neighbours[1]]) ** 2)
+                d = np.append(d, (d1 + d2) / 2)
+                if i in nind_c1:
+                    alpha = np.append(alpha, ((alpha1 + alpha2) / 2))
+                elif i in nind_c2:
+                    alpha = np.append(alpha, -np.pi + ((alpha1 + alpha2) / 2))
+
+            elif abs(x[i]) == max(x):
+                if y[i] > 0:
+                    alpha = np.append(alpha, np.pi / 2)
+                    d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
+                    d = np.append(d, d1)
+                elif y[i] < 0:
+                    alpha = np.append(alpha, -np.pi / 2)
+                    d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
+                    d = np.append(d, d1)
+
+        # alpha_deg = np.degrees(alpha)
+        # alpha_deg = np.column_stack((alpha_deg, nind_c))
+        # px = pr * np.cos(alpha) * d * w
+        # py = pr * np.sin(alpha) * d * w
+        # px = np.reshape(px, (len(px), 1))
+        # py = np.reshape(py, (len(py), 1))
+        #
+        # px[abs(px) < 0.001] = 0
+        # py[abs(py) < 0.001] = 0
+
+        return d, alpha
+
+    def litho_forces_interface(self):
+        """
+        Evaluate x and y component of nodal forces on the cavern's wall
+        :return:
+        """
+        t_bnd, r_bnd = self.__mesh.litho_bnd()
+        node_ind = self.__mesh.edges()
+        x, y = self.__mesh.coordinates()
+        dt = np.array([])
+        dr = np.array([])
+
+        for i in t_bnd:
+            index = np.where((node_ind == i))[0]
+            nindex = node_ind[index].flatten()
+            seen = set([i])
+            neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
+
+            if abs(x[i]) < max(x):
+                d1 = abs(x[i] - x[neighbours[0]])
+                d2 = abs(x[i] - x[neighbours[1]])
+                dt = np.append(dt, (d1 + d2) / 2)
+
+            elif abs(x[i]) == max(x):
+                d1 = abs(x[i] - x[neighbours[0]])
+                dt = np.append(dt, d1 / 2)
+
+        for j in r_bnd:
+            index = np.where((node_ind == j))[0]
+            nindex = node_ind[index].flatten()
+            seen = set([j])
+            neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
+
+            if abs(y[j]) < max(y):
+                d1 = abs(y[j] - y[neighbours[0]])
+                d2 = abs(y[j] - y[neighbours[1]])
+                dr = np.append(dr, (d1 + d2) / 2)
+
+            elif abs(y[j]) == max(y):
+                if y[j] == y[neighbours[0]]:
+                    d1 = abs(y[j] - y[neighbours[1]])
+                else:
+                    d1 = abs(y[j] - y[neighbours[0]])
+                dr = np.append(dr, d1 / 2)
+
+        # px = -p * dr * w
+        # py = -p * dt * w
+
+        return dr, dt
+
+    def dfcr_du(self, decr, de, ds, th=1):
+        dF_du = np.zeros((self.__nDOFs, self.__nDOFs))
+
+        for elt in self.__elts:
+            area = elt.area()
+            ind = elt.dofnos()
+            B = self.strain_disp_matrix(elt.eltno())
+            D = elt.el_tenz()
+            Kte = th * area * np.dot(np.transpose(B), D)
+            decr = np.array([
+                [de[0, elt.eltno()] / ds[0, elt.eltno()], de[0, elt.eltno()] / ds[1, elt.eltno()],
+                 de[0, elt.eltno()] / ds[2, elt.eltno()]],
+                [de[1, elt.eltno()] / ds[0, elt.eltno()], de[1, elt.eltno()] / ds[1, elt.eltno()],
+                 de[1, elt.eltno()] / ds[2, elt.eltno()]],
+                [de[2, elt.eltno()] / ds[0, elt.eltno()], de[2, elt.eltno()] / ds[1, elt.eltno()],
+                 de[2, elt.eltno()] / ds[2, elt.eltno()]]])
+            # decr = decr.transpose()
+            dfcre = np.dot(Kte, np.dot(decr, np.dot(D, B)))
+            ixgrid = np.ix_(ind, ind)
+            dF_du[ixgrid] += dfcre
+
+        return dF_du
 
 
 class anl(object):
