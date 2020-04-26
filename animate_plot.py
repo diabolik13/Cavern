@@ -619,12 +619,12 @@ def save_plot2(input, output, node):
     print('Done writing results to the output files.')
 
 
-def write_results2(nt, p, t, output, l, ext, exaggerate=False):
+def write_results2(nt, mesh, output, l, ext, exaggerate=False):
     """
     Saves results in separate files in *.gif and *.png formats.
     """
-
-    x, y = p
+    x, y = mesh.coordinates()
+    t = mesh.cells()
     nnodes = len(x)
 
     def ex(i):

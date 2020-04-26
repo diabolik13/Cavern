@@ -176,4 +176,4 @@ print("Total simulation time is {} days.\n Maximum elastic displacement is {} m,
     float("{0:.1e}".format(np.max(abs(output['displacement'][:, -1] - output['displacement'][:, 0]))))))
 
 write_results_xdmf2(nt, mesh, output, filename.split(".")[0])
-# write_results2(nt, mesh.coordinates(), mesh.cells(), output, 10, '.gif', exaggerate=False)
+# write_results2(nt, mesh, output, 10, '.gif', exaggerate=False)
