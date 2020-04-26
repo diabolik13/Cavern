@@ -1,7 +1,8 @@
 # coords + 90*(displacement_x, [m]*iHat + displacement_y, [m]*jHat + 0*kHat)
 import time
+import CoolProp.CoolProp as CP
 
-from animate_plot import write_results2, write_results_xdmf2
+from animate_plot import write_results
 from classeslib import *
 from datetime import datetime
 from elasticity import *
@@ -37,7 +38,7 @@ mu = np.array([12e9, 12e9, 12e9])  # Shear modulus, [Pa]
 kb = np.array([21e9, 21e9, 21e9])  # Bulk modulus, [Pa]
 lamda = kb - 2 / 3 * mu
 th = 1  # thickness of the domain, [m]
-nt = 50  # number of time steps, [-]
+nt = 75  # number of time steps, [-]
 dt = 31536000e-2  # time step, [s]
 
 filename = 'new_cave2.msh'
@@ -175,5 +176,4 @@ print("Total simulation time is {} days.\n Maximum elastic displacement is {} m,
     float("{0:.3f}".format(np.max(abs(output['displacement'][:, 0])))),
     float("{0:.1e}".format(np.max(abs(output['displacement'][:, -1] - output['displacement'][:, 0]))))))
 
-write_results_xdmf2(nt, mesh, output, filename.split(".")[0])
-# write_results2(nt, mesh, output, 10, '.gif', exaggerate=False)
+write_results(nt, mesh, output, filename.split(".")[0], '.xdmf')
