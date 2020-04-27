@@ -3,6 +3,7 @@ import numpy as np
 import sympy as sp
 
 from elasticity import von_mises_stress
+from CoolProp.CoolProp import PropsSI
 
 
 def polyarea(coord):
@@ -428,7 +429,7 @@ class FunctionSpace(object):
             k[ixgrid] += ke
         return k
 
-    def load_vector(self, p, th, pressure, boundary):
+    def load_vector(self, p, temp, g, depth, th, pressure, boundary):
         """
         assemble load vector
         :return:
@@ -437,18 +438,16 @@ class FunctionSpace(object):
         if boundary == 'cavern':
             d, alpha = self.nodal_forces()
             nind_c, nind_c1, nind_c2 = self.cavern_nodes_ind()
-            d_cav_top = max(y) - max(y[nind_c])
-            d_cav_bot = max(y) - min(y[nind_c])
+            d_cav_top = depth + max(y) - max(y[nind_c])
+            d_cav_bot = depth + max(y) - min(y[nind_c])
             pc_min = 0.2 * p * d_cav_bot  # minimum allowable cavern pressure, [Pa]
             pc_max = 0.8 * p * d_cav_top  # maximum allowable cavern pressure, [Pa]
             if pressure == 'max':
                 pc = pc_max
             elif pressure == 'min':
                 pc = pc_min
-        # else:
-        #     dr, dt = self.litho_forces_interface()
-        #     nind_t, nind_r = self.__mesh.litho_bnd()
 
+        rho_h2 = PropsSI('D', 'T', temp, 'P', pc, 'hydrogen')
         f = np.zeros((2 * self.__nnodes, 1))
 
         for elt in self.__elts:
@@ -460,18 +459,10 @@ class FunctionSpace(object):
                 # Applying lithostatic Newman's B.C. on top and right edges
                 if boundary == 'cavern':
                     if node[i] in nind_c:
-                        dp = (pc - p * (max(y) - y[node[i]])) * d[np.where(nind_c == node[i])] * th
+                        dp = (pc + rho_h2 * g * (max(y[nind_c] - y[node[i]])) - p * (depth + max(y) - y[node[i]])) * \
+                             d[np.where(nind_c == node[i])] * th
                         fe[2 * i] += dp * np.cos(alpha[np.where(nind_c == node[i])])
                         fe[2 * i + 1] += dp * np.sin(alpha[np.where(nind_c == node[i])])
-                # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern)
-                # if boundary == 'right':
-                #     if node[i] in nind_r:
-                #         plx = p * (depth + np.max(y) - y[node[i]]) * dr
-                #         fe[2 * i] += -plx[np.where(nind_r == node[i])]
-                # if boundary == 'top':
-                #     if node[i] in nind_t:
-                #         ply = p * depth * dt
-                #         fe[2 * i + 1] += -ply[np.where(nind_t == node[i])]
 
             f[ind] = fe.reshape((6, 1))
 
@@ -610,7 +601,7 @@ class FunctionSpace(object):
                 elif i in nind_c2:
                     alpha = np.append(alpha, -np.pi + ((alpha1 + alpha2) / 2))
 
-            elif abs(x[i]) == max(x):
+            elif x[i] == max(x) or x[i] == min(x):
                 if y[i] > 0:
                     alpha = np.append(alpha, np.pi / 2)
                     d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)

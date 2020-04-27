@@ -1,6 +1,5 @@
-# coords + 90*(displacement_x, [m]*iHat + displacement_y, [m]*jHat + 0*kHat)
+# coords + 1e2*(displacement_x, [m]*iHat + displacement_y, [m]*jHat + 0*kHat)
 import time
-import CoolProp.CoolProp as CP
 
 from animate_plot import write_results
 from classeslib import *
@@ -28,8 +27,8 @@ time_start = time.time()
 NR = False
 g = 9.81  # gravity constant, [m/s^2]
 rho = 2750  # average rock salt, [kg/m3]
-depth = 300  # depth from the surface to the salt rock top interface, [m]
-a = 1e-25  # creep material constant, [Pa^n]
+depth = 1000  # depth from the surface to the salt rock top interface, [m]
+a = 1e-26  # creep material constant, [Pa^n]
 n = 5  # creep material constant, [-]
 temp = 343  # temperature, [K]
 q = 35000  # creep activation energy, [cal/mol]
@@ -38,15 +37,16 @@ mu = np.array([12e9, 12e9, 12e9])  # Shear modulus, [Pa]
 kb = np.array([21e9, 21e9, 21e9])  # Bulk modulus, [Pa]
 lamda = kb - 2 / 3 * mu
 th = 1  # thickness of the domain, [m]
-nt = 75  # number of time steps, [-]
-dt = 31536000e-2  # time step, [s]
+nt = 25  # number of time steps, [-]
+# dt = 31536000e-2  # time step, [s]
+dt = 1e6  # time step, [s]
 
 filename = 'new_cave2.msh'
-mesh = Mesh('./mesh/' + filename, 1e3, 1e3)
+mesh = Mesh('./mesh/' + filename, 4e2, 4e2)
 sfns = Shapefns()
 V = FunctionSpace(mesh, sfns, mu, kb)
 k = V.stiff_matrix()
-fo = V.load_vector(rho * g, th, pressure='min', boundary='cavern')
+fo = V.load_vector(rho * g, temp, g, depth, th, pressure='min', boundary='cavern')
 d_bnd = mesh.extract_bnd(lx=True, ly=False,
                          rx=True, ry=False,
                          bx=False, by=True,
