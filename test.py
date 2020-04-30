@@ -24,7 +24,7 @@ class Logger(object):
 sys.stdout = Logger("log.txt")
 time_start = time.time()
 
-NR = False
+NR = True
 g = 9.81  # gravity constant, [m/s^2]
 rho = 2750  # average rock salt, [kg/m3]
 depth = 1000  # depth from the surface to the salt rock top interface, [m]
