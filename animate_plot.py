@@ -153,9 +153,14 @@ def write_results(nt, mesh, output, folder, ext1, ext2=None, l=10):
                     ax.locator_params(axis='both', nbins=3)
                     ax.tick_params(axis='both', which='major', labelsize=30)
                     ax.tick_params(axis='both', which='minor', labelsize=16)
+                    ax.axes.xaxis.set_ticks([])
+                    ax.axes.yaxis.set_ticks([])
                     ax.triplot(triang, color='white', lw=0.1)
+                    # ax.set_title(
+                    #     label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.\n',
+                    #     fontsize=30)
                     ax.set_title(
-                        label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.\n',
+                        'elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.\n',
                         fontsize=30)
                     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
                     cbar.set_label(label + ' magnitude ' + units, fontsize=30)
@@ -165,14 +170,18 @@ def write_results(nt, mesh, output, folder, ext1, ext2=None, l=10):
                     ax.set_ylabel('y [m]', fontsize=30)
                     ax.ticklabel_format(useMathText=True)
 
-                if nt < 20:
-                    anim = FuncAnimation(
-                        fig, animate, interval=100, frames=nt)
-                    anim.save('./output/' + folder + '/' + label + ext, writer='imagemagick')
-                else:
-                    anim = FuncAnimation(
-                        fig, animate, interval=100, frames=20)
-                    anim.save('./output/' + folder + '/' + label + ext, writer='imagemagick')
+                # if nt < 20:
+                #     anim = FuncAnimation(
+                #         fig, animate, interval=100, frames=nt)
+                #     anim.save('./output/' + folder + '/' + label + ext, writer='imagemagick')
+                # else:
+                #     anim = FuncAnimation(
+                #         fig, animate, interval=100, frames=20)
+                #     anim.save('./output/' + folder + '/' + label + ext, writer='imagemagick')
+
+                anim = FuncAnimation(
+                    fig, animate, interval=100, frames=nt)
+                anim.save('./output/' + folder + '/' + label + ext, writer='imagemagick')
 
     print("Done writing results to output files in the ./output/" + folder + " folder.")
 

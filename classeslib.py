@@ -468,7 +468,7 @@ class FunctionSpace(object):
 
         return f
 
-    def creep_load_vector(self, dt, a, n, q, r, temp, stress, strain_crg, th=1):
+    def creep_load_vector(self, dt, a, n, q, r, temp, stress, strain_crg, arrhenius=None, th=1):
         """
         assemble creep load vector
         :return:
@@ -495,7 +495,11 @@ class FunctionSpace(object):
 
         dstressg = deviatoric_stress()
         svmg = von_mises_stress(stress)
-        g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * np.exp(- q / (r * temp))
+        if arrhenius is not None:
+            arr = np.exp(- q / (r * temp))
+        else:
+            arr = 1
+        g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * arr
         strain_crg = strain_crg + g_crg * dt
         f_cr = assemble_creep_forces_vector()
 

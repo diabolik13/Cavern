@@ -25,21 +25,25 @@ sys.stdout = Logger("log.txt")
 time_start = time.time()
 
 NR = True
+arrhenius = True
 g = 9.81  # gravity constant, [m/s^2]
-rho = 2750  # average rock salt, [kg/m3]
-depth = 1000  # depth from the surface to the salt rock top interface, [m]
-a = 1e-26  # creep material constant, [Pa^n]
-n = 5  # creep material constant, [-]
-temp = 343  # temperature, [K]
-q = 35000  # creep activation energy, [cal/mol]
-r = 1.987  # gas constant, [cal/(mol*K)]
-mu = np.array([12e9, 12e9, 12e9])  # Shear modulus, [Pa]
-kb = np.array([21e9, 21e9, 21e9])  # Bulk modulus, [Pa]
+rho = 2200  # average rock salt, [kg/m3]
+depth = 500  # depth from the surface to the salt rock top interface, [m]
+a = 8.1e-26  # creep material constant, [Pa^n]
+n = 3.5  # creep material constant, [-]
+temp = 298  # temperature, [K]
+# q = 125000  # creep activation energy, [cal/mol]
+q = 51600  # creep activation energy, [J/mol]
+# r = 1.987  # gas constant, [cal/(mol*K)]
+# r = 1.38e-23  # Boltzman constant, [m^2*kg*s^-2*K^-1]
+r = 8.314  # gas constant, [J/mol/K]
+mu = np.array([7.5e9])  # Shear modulus, [Pa]
+kb = np.array([24.3e9])  # Bulk modulus, [Pa]
 lamda = kb - 2 / 3 * mu
 th = 1  # thickness of the domain, [m]
-nt = 25  # number of time steps, [-]
+nt = 1000  # number of time steps, [-]
 # dt = 31536000e-2  # time step, [s]
-dt = 1e6  # time step, [s]
+dt = 1e5  # time step, [s]
 
 filename = 'new_cave2.msh'
 mesh = Mesh('./mesh/' + filename, 4e2, 4e2)
@@ -80,7 +84,7 @@ svm_out[:, 0] = von_mises_stress(stress).transpose()
 if NR == False:
     if nt > 1:
         for i in tqdm(range(nt - 1)):
-            f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg, strain_crg)
+            f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg, strain_crg, arrhenius)
             strain_cr = V.nodal_extrapolation(strain_crg)
             f = fo + f_cr
             f[d_bnd] = 0
@@ -117,7 +121,7 @@ if NR == True:
                 # mesh.update_mesh(u)
                 # FunctionSpace(mesh, sfns, mu, kb)
 
-                f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg, strain_crg)
+                f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg, strain_crg, arrhenius)
                 strain_cr = V.nodal_extrapolation(strain_crg)
                 f = fo + f_cr
                 f[d_bnd] = 0
