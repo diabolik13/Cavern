@@ -27,3 +27,9 @@ Point(6) = {1, 0.5, 0, 0.1};
 Line(5) = {6, 5};
 //+
 Line(6) = {6, 5};
+//+
+Plane Surface(2) = {1};
+//+
+Physical Surface("domain", 7) = {1};
+//+
+Physical Curve("cavern", 11) = {4};

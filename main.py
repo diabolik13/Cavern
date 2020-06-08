@@ -46,5 +46,5 @@ print("\nExplicit simulation is done in {} seconds.\n"
 
 # write_results(input_param, output, 25, '.gif', exaggerate=True)
 write_results_xdmf(input_param, output)
-# save_plot(input_param, output, 228)
+save_plot(input_param, output, 228)
 print('Done in ' + str(time.time() - time_start) + ' seconds.')

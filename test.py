@@ -1,5 +1,6 @@
 # coords + 1e2*(displacement_x, [m]*iHat + displacement_y, [m]*jHat + 0*kHat)
 import time
+import xlsxwriter
 
 from animate_plot import write_results
 from classeslib import *
@@ -24,12 +25,13 @@ class Logger(object):
 sys.stdout = Logger("log.txt")
 time_start = time.time()
 
-NR = True
+NR = False
 arrhenius = True
+cfl = 0.8
 g = 9.81  # gravity constant, [m/s^2]
 rho = 2200  # average rock salt, [kg/m3]
-depth = 500  # depth from the surface to the salt rock top interface, [m]
-a = 8.1e-26  # creep material constant, [Pa^n]
+depth = 700  # depth from the surface to the salt rock top interface, [m]
+a = 8.1e-28  # creep material constant, [Pa^n]
 n = 3.5  # creep material constant, [-]
 temp = 298  # temperature, [K]
 # q = 125000  # creep activation energy, [cal/mol]
@@ -37,18 +39,22 @@ q = 51600  # creep activation energy, [J/mol]
 # r = 1.987  # gas constant, [cal/(mol*K)]
 # r = 1.38e-23  # Boltzman constant, [m^2*kg*s^-2*K^-1]
 r = 8.314  # gas constant, [J/mol/K]
-mu = np.array([7.5e9])  # Shear modulus, [Pa]
-kb = np.array([24.3e9])  # Bulk modulus, [Pa]
-lamda = kb - 2 / 3 * mu
+# mu = np.array([7.5e9])  # Shear modulus, [Pa]
+# kb = np.array([24.3e9])  # Bulk modulus, [Pa]
+mu = 7.5e9  # Shear modulus, [Pa]
+kb = 24.3e9  # Bulk modulus, [Pa]
+lamda = kb - 2 / 3 * mu  # lame parameter
+nu = (3 * kb - 2 * mu) / (2 * (3 * kb + mu))  # poisson's ratio
+ym = 9 * kb * mu / (3 * kb + mu)  # young's moduli
 th = 1  # thickness of the domain, [m]
-nt = 1000  # number of time steps, [-]
+nt = 20  # number of time steps, [-]
 # dt = 31536000e-2  # time step, [s]
 dt = 1e5  # time step, [s]
 
 filename = 'new_cave2.msh'
 mesh = Mesh('./mesh/' + filename, 4e2, 4e2)
 sfns = Shapefns()
-V = FunctionSpace(mesh, sfns, mu, kb)
+V = FunctionSpace(mesh, sfns, ym, nu)
 k = V.stiff_matrix()
 fo = V.load_vector(rho * g, temp, g, depth, th, pressure='min', boundary='cavern')
 d_bnd = mesh.extract_bnd(lx=True, ly=False,
@@ -81,6 +87,10 @@ strain_out[:, 0] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
 stress_out[:, 0] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
 svm_out[:, 0] = von_mises_stress(stress).transpose()
 
+g_cr = 3 / 2 * a * np.abs(np.power(von_mises_stress(stress), n - 2)) * von_mises_stress(
+    stress) * deviatoric_stress(stress) * np.exp(- q / (r * temp))
+dt = cfl * 0.5 * np.max(np.abs(strain)) / np.max(np.abs(g_cr))
+
 if NR == False:
     if nt > 1:
         for i in tqdm(range(nt - 1)):
@@ -92,8 +102,8 @@ if NR == False:
 
             straing = V.gauss_strain(u)
             strain = V.nodal_extrapolation(straing)
-            stressg = V.gauss_stress(straing - strain_crg)
-            stress = V.nodal_extrapolation(stressg)
+            # stressg = V.gauss_stress(straing - strain_crg)
+            # stress = V.nodal_extrapolation(stressg)
 
             disp_out[:, i + 1] = np.concatenate((u[::2].reshape(mesh.nnodes(), ),
                                                  u[1::2].reshape(mesh.nnodes(), )), axis=0)
@@ -106,7 +116,11 @@ if NR == False:
 
             # elapsed time
             et = np.append(et, et[-1] + dt)
-
+            # g_cr = 3 / 2 * a * np.abs(np.power(von_mises_stress(stress), n - 2)) * von_mises_stress(
+            #     stress) * deviatoric_stress(stress) * np.exp(- q / (r * temp))
+            # dt = cfl * 0.5 * np.max(np.abs(strain)) / np.max(np.abs(g_cr))
+            if dt < 3e6:
+                dt *= 1.5
 if NR == True:
     J = k
     if nt > 1:
@@ -180,4 +194,28 @@ print("Total simulation time is {} days.\n Maximum elastic displacement is {} m,
     float("{0:.3f}".format(np.max(abs(output['displacement'][:, 0])))),
     float("{0:.1e}".format(np.max(abs(output['displacement'][:, -1] - output['displacement'][:, 0]))))))
 
-write_results(nt, mesh, output, filename.split(".")[0], '.xdmf')
+write_results(nt, mesh, output, filename.split(".")[0], '.xdmf', '.gif')
+save_plot_A(nt, mesh, output, filename.split(".")[0], 700)
+
+# nnodes = mesh.nnodes()
+# workbook = xlsxwriter.Workbook('./output/' + filename.split(".")[0] + '/data.xlsx')
+# worksheet = workbook.add_worksheet()
+# row = 0
+# col = 0
+# order = sorted(output.keys())
+# for key in order:
+#     row += 1
+#     worksheet.write(row, col, key)
+#     for item in output[key]:
+#         row += 1
+#         i = 0
+#         if type(item) == np.ndarray:
+#             for value in item:
+#                 worksheet.write(row, col + i, value)
+#                 i += 1
+#         else:
+#             worksheet.write(row, col + i, item)
+#             i += 1
+#
+#
+# workbook.close()

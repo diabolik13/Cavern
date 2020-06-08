@@ -875,3 +875,128 @@ def hist(a):
     plt.hist(a, bins='auto')
     plt.title("Histogram with 'auto' bins")
     plt.show()
+
+
+def save_plot_A(nt, mesh, output, folder, node):
+    """Saves results for one particular point."""
+
+    from matplotlib.ticker import ScalarFormatter
+    from pathlib import Path
+
+    class ScalarFormatterForceFormat(ScalarFormatter):
+        def _set_format(self):  # Override function that finds format to use.
+            self.format = "%1.1f"  # Give format here
+
+    p = mesh.meshdata().points
+    t = mesh.meshdata().cells
+
+    x = p[0, :]  # x-coordinates of nodes
+    y = p[1, :]  # y-coordinates of nodes
+    nnodes = mesh.nnodes()
+
+    data = {
+        0: {
+            0: {
+                "title": 'displacement_x',
+                "units": '[m]',
+                "value": output['displacement'][:nnodes]
+            },
+            1: {
+                "title": 'displacement_y',
+                "units": '[m]',
+                "value": output['displacement'][nnodes:]
+            }
+        },
+        1: {
+            0: {
+                "title": 'strain_x',
+                "units": '[-]',
+                "value": output['strain'][:nnodes]
+            },
+            1: {
+                "title": 'strain_y',
+                "units": '[-]',
+                "value": output['strain'][nnodes:2 * nnodes]
+            },
+            2: {
+                "title": 'strain_shear',
+                "units": '[-]',
+                "value": output['strain'][2 * nnodes:3 * nnodes]
+            }
+        },
+        2: {
+            0: {
+                "title": 'stress_x',
+                "units": '[Pa]',
+                "value": output['stress'][:nnodes]
+            },
+            1: {
+                "title": 'stress_y',
+                "units": '[Pa]',
+                "value": output['stress'][nnodes:2 * nnodes]
+            },
+            2: {
+                "title": 'stress_shear',
+                "units": '[Pa]',
+                "value": output['stress'][2 * nnodes:3 * nnodes]
+            }
+        },
+        3: {
+            0: {
+                "title": 'von_mises_stress',
+                "units": '[Pa]',
+                "value": output['Von Mises stress'][:nnodes]
+            }
+        },
+        4: {
+            0: {
+                "title": 'creep_forces_x',
+                "units": '[N]',
+                "value": output['creep forces'][:nnodes]
+            },
+            1: {
+                "title": 'creep_forces_y',
+                "units": '[N]',
+                "value": output['creep forces'][nnodes:]
+            }
+        }
+    }
+
+    if nt > 1:
+        iter = len(data)
+    elif nt == 1:
+        iter = len(data) - 1
+
+    Path('./output/' + folder).mkdir(parents=True, exist_ok=True)
+    folder = './output/' + folder + '/'
+    for k in range(iter):
+        var = data[k]
+        for j in range(len(var)):
+            label = var[j]['title']
+            units = var[j]['units']
+            z = var[j]['value']
+
+            # fig, ax = plt.subplots(constrained_layout=True)
+            # fig.tight_layout()
+            fig = plt.figure(figsize=(8, 6))
+            ax = fig.add_axes([0.15, 0.1, 0.8, 0.8])
+            ax.cla()
+            plt.cla()
+            # ax.set_aspect('equal', 'box')
+            # ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
+
+            ax.plot(output['elapsed time'] / 86400, z[node], 'ro-')
+            # yfmt = ScalarFormatterForceFormat()
+            # yfmt.set_powerlimits((0, 0))
+            # ax.yaxis.set_major_formatter(yfmt)
+            # ax.yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:.2e}'))
+            ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+            ax.ticklabel_format(useMathText=True)
+            ax.grid(True)
+            ax.set_xlabel('elapsed time, [days]', fontsize=20)
+            ax.set_ylabel(label + ', ' + units, fontsize=20)
+            plt.savefig(folder + label + '_vs_disp.png')
+            # plt.show()
+            plt.close(fig)
+
+    print('Done writing results to the output files.')

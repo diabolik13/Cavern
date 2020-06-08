@@ -11,13 +11,16 @@ def polyarea(coord):
     return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
 
 
-def el_tenzor(mu, k):
+def el_tenzor(e, nu):
     # Elastic modulus
-    lamda = k - 2 / 3 * mu
+    # lamda = k - 2 / 3 * mu
     # Elasticity tenzor
-    d = np.array([[lamda + 2 * mu, lamda, 0],
-                  [lamda, lamda + 2 * mu, 0],
-                  [0, 0, mu]])
+    # d = np.array([[lamda + 2 * mu, lamda, 0],
+    #               [lamda, lamda + 2 * mu, 0],
+    #               [0, 0, mu]])
+    d = e / (1 - nu ** 2) * np.array([[1, nu, 0],
+                                      [nu, 1, 0],
+                                      [0, 0, (1 - nu) / 2]])
     return d
 
 
@@ -268,7 +271,7 @@ class FiniteElement(object):
       derivative=True, do integral(f1*f2*dphi)
     """
 
-    def __init__(self, mesh, sfns, eltno, mu, kb):
+    def __init__(self, mesh, sfns, eltno, e, nu):
         """
         mesh is the mesh it is built on
         sfns is the Shapefuns member
@@ -298,7 +301,8 @@ class FiniteElement(object):
         # area of the element
         self.__area = polyarea(mesh.coordinates(self.__endnos))
         # elasticity tenzor of the element
-        self.__D = el_tenzor(mu[mesh.cell_ph_group(eltno) - 1], kb[mesh.cell_ph_group(eltno) - 1])
+        # self.__D = el_tenzor(mu[mesh.cell_ph_group(eltno) - 1], kb[mesh.cell_ph_group(eltno) - 1])
+        self.__D = el_tenzor(e, nu)
         # self.__D = el_tenzor(mu[0], kb[0])
 
     def eltno(self):
@@ -375,7 +379,7 @@ class FunctionSpace(object):
 
     """
 
-    def __init__(self, mesh, sfns, mu, kb):
+    def __init__(self, mesh, sfns, e, nu):
         """
         mesh is the mesh
         sfns is the Shapefuns
@@ -391,7 +395,7 @@ class FunctionSpace(object):
         # mesh
         self.__mesh = mesh
         for n in range(self.__nele):
-            fe = FiniteElement(mesh, sfns, n, mu, kb)
+            fe = FiniteElement(mesh, sfns, n, e, nu)
             self.__elts.append(fe)
 
     def size(self):

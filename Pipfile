@@ -28,6 +28,7 @@ Cycler = "==0.10.0"
 Mako = "==1.1.0"
 MarkupSafe = "==1.1.1"
 netCDF4 = "==1.5.3"
+xlsxwriter = "*"
 
 [requires]
 python_version = "3.8"
