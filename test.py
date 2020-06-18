@@ -50,6 +50,7 @@ th = 1  # thickness of the domain, [m]
 nt = 20  # number of time steps, [-]
 # dt = 31536000e-2  # time step, [s]
 dt = 1e5  # time step, [s]
+scale = 4e2
 
 filename = 'new_cave2.msh'
 mesh = Mesh('./mesh/' + filename, 4e2, 4e2)
