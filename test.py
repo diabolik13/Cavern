@@ -47,17 +47,19 @@ lamda = kb - 2 / 3 * mu  # lame parameter
 nu = (3 * kb - 2 * mu) / (2 * (3 * kb + mu))  # poisson's ratio
 ym = 9 * kb * mu / (3 * kb + mu)  # young's moduli
 th = 1  # thickness of the domain, [m]
-nt = 20  # number of time steps, [-]
+nt = 30  # number of time steps, [-]
 # dt = 31536000e-2  # time step, [s]
-dt = 1e5  # time step, [s]
+dt = 1e6  # time step, [s]
 scale = 4e2
+sign = 1
 
+et = [0]
 filename = 'new_cave2.msh'
 mesh = Mesh('./mesh/' + filename, 4e2, 4e2)
 sfns = Shapefns()
 V = FunctionSpace(mesh, sfns, ym, nu)
 k = V.stiff_matrix()
-fo = V.load_vector(rho * g, temp, g, depth, th, pressure='min', boundary='cavern')
+fo, sign = V.load_vector(rho * g, temp, g, depth, th, et[-1], 0, sign, pressure='min', boundary='cavern')
 d_bnd = mesh.extract_bnd(lx=True, ly=False,
                          rx=True, ry=False,
                          bx=False, by=True,
@@ -81,7 +83,6 @@ forces_out = np.zeros((2 * mesh.nnodes(), nt))
 svm_out = np.zeros((mesh.nnodes(), nt))
 strain_crg = np.zeros((3, mesh.nele()))
 strain_cr_out = np.zeros((3 * mesh.nnodes(), nt))
-et = [0]
 
 disp_out[:, 0] = np.concatenate((u[::2].reshape(mesh.nnodes(), ), u[1::2].reshape(mesh.nnodes(), )), axis=0)
 strain_out[:, 0] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
@@ -90,11 +91,12 @@ svm_out[:, 0] = von_mises_stress(stress).transpose()
 
 g_cr = 3 / 2 * a * np.abs(np.power(von_mises_stress(stress), n - 2)) * von_mises_stress(
     stress) * deviatoric_stress(stress) * np.exp(- q / (r * temp))
-dt = cfl * 0.5 * np.max(np.abs(strain)) / np.max(np.abs(g_cr))
+# dt = cfl * 0.5 * np.max(np.abs(strain)) / np.max(np.abs(g_cr))
 
 if NR == False:
     if nt > 1:
         for i in tqdm(range(nt - 1)):
+            fo, sign = V.load_vector(rho * g, temp, g, depth, th, et[-1], i, sign, pressure='min', boundary='cavern')
             f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg, strain_crg, arrhenius)
             strain_cr = V.nodal_extrapolation(strain_crg)
             f = fo + f_cr
@@ -120,8 +122,9 @@ if NR == False:
             # g_cr = 3 / 2 * a * np.abs(np.power(von_mises_stress(stress), n - 2)) * von_mises_stress(
             #     stress) * deviatoric_stress(stress) * np.exp(- q / (r * temp))
             # dt = cfl * 0.5 * np.max(np.abs(strain)) / np.max(np.abs(g_cr))
-            if dt < 3e6:
-                dt *= 1.5
+            # if dt < 3e6:
+            #     dt *= 1.5
+
 if NR == True:
     J = k
     if nt > 1:
@@ -195,7 +198,7 @@ print("Total simulation time is {} days.\n Maximum elastic displacement is {} m,
     float("{0:.3f}".format(np.max(abs(output['displacement'][:, 0])))),
     float("{0:.1e}".format(np.max(abs(output['displacement'][:, -1] - output['displacement'][:, 0]))))))
 
-write_results(nt, mesh, output, filename.split(".")[0], '.xdmf', '.gif')
+# write_results(nt, mesh, output, filename.split(".")[0], '.xdmf', '.gif')
 save_plot_A(nt, mesh, output, filename.split(".")[0], 700)
 
 # nnodes = mesh.nnodes()

@@ -433,12 +433,17 @@ class FunctionSpace(object):
             k[ixgrid] += ke
         return k
 
-    def load_vector(self, p, temp, g, depth, th, pressure, boundary):
+    def load_vector(self, p, temp, g, depth, th, et, i, sign, pressure, boundary):
         """
         assemble load vector
         :return:
         """
+        c = 1
         x, y = self.__mesh.coordinates()
+
+        if (i % 3 == 0) and i != 0:
+            sign = -sign
+
         if boundary == 'cavern':
             d, alpha = self.nodal_forces()
             nind_c, nind_c1, nind_c2 = self.cavern_nodes_ind()
@@ -446,10 +451,16 @@ class FunctionSpace(object):
             d_cav_bot = depth + max(y) - min(y[nind_c])
             pc_min = 0.2 * p * d_cav_bot  # minimum allowable cavern pressure, [Pa]
             pc_max = 0.8 * p * d_cav_top  # maximum allowable cavern pressure, [Pa]
+
             if pressure == 'max':
                 pc = pc_max
             elif pressure == 'min':
                 pc = pc_min
+
+            if sign == 1:
+                pc = pc_max
+            elif sign == -1:
+                pc == pc_min
 
         rho_h2 = PropsSI('D', 'T', temp, 'P', pc, 'hydrogen')
         f = np.zeros((2 * self.__nnodes, 1))
@@ -470,7 +481,7 @@ class FunctionSpace(object):
 
             f[ind] = fe.reshape((6, 1))
 
-        return f
+        return f, sign
 
     def creep_load_vector(self, dt, a, n, q, r, temp, stress, strain_crg, arrhenius=None, th=1):
         """
