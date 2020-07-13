@@ -11,16 +11,21 @@ def polyarea(coord):
     return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
 
 
-def el_tenzor(e, nu):
+def el_tenzor(e, nu, eltno=None):
     # Elastic modulus
     # lamda = k - 2 / 3 * mu
     # Elasticity tenzor
     # d = np.array([[lamda + 2 * mu, lamda, 0],
     #               [lamda, lamda + 2 * mu, 0],
     #               [0, 0, mu]])
-    d = e / (1 - nu ** 2) * np.array([[1, nu, 0],
-                                      [nu, 1, 0],
-                                      [0, 0, (1 - nu) / 2]])
+    if eltno == None:
+        d = e / (1 - nu ** 2) * np.array([[1, nu, 0],
+                                          [nu, 1, 0],
+                                          [0, 0, (1 - nu) / 2]])
+    else:
+        d = e[eltno] / (1 - nu[eltno] ** 2) * np.array([[1, nu[eltno], 0],
+                                                        [nu[eltno], 1, 0],
+                                                        [0, 0, (1 - nu[eltno]) / 2]])
     return d
 
 
@@ -203,6 +208,16 @@ class Mesh(object):
         self.__pointsdata[:, 0] += np.transpose(u[::2].reshape((self.__Nnodes,)))
         self.__pointsdata[:, 1] += np.transpose(u[::2].reshape((self.__Nnodes,)))
 
+    def peak(self, sigma, xs, ys):
+        x, y = self.__nodes
+        f = np.exp(-((x - xs) ** 2) / sigma ** 2 - ((y - ys) ** 2) / sigma ** 2)
+        return f
+
+    def onedpeak(self, sigma, ys):
+        x, y = self.__nodes
+        f = np.exp(- ((y - ys) ** 2) / sigma ** 2)
+        return f
+
 
 class Shapefns(object):
     """
@@ -271,7 +286,7 @@ class FiniteElement(object):
       derivative=True, do integral(f1*f2*dphi)
     """
 
-    def __init__(self, mesh, sfns, eltno, e, nu):
+    def __init__(self, mesh, sfns, eltno, e, nu, imp=1):
         """
         mesh is the mesh it is built on
         sfns is the Shapefuns member
@@ -302,7 +317,29 @@ class FiniteElement(object):
         self.__area = polyarea(mesh.coordinates(self.__endnos))
         # elasticity tenzor of the element
         # self.__D = el_tenzor(mu[mesh.cell_ph_group(eltno) - 1], kb[mesh.cell_ph_group(eltno) - 1])
-        self.__D = el_tenzor(e, nu)
+        # self.__D = el_tenzor(e, nu)
+
+        # D = np.zeros((mesh.nele(),))
+        # eg = np.zeros((mesh.nele(),))
+        # nug = np.zeros((mesh.nele(),))
+        # mean = [e, nu]
+        # cov = [[3e17, 1000], [1000, 0.001]]
+        # x, y = np.random.multivariate_normal(mean, cov, mesh.nele()).T
+
+        xx = np.array([0.5 * e, 1.5 * e])
+        yy = np.array([0.5 * nu, 1.5 * nu])
+        means = [xx.mean(), yy.mean()]
+        stds = [xx.std() / 3, yy.std() / 3]
+        corr = 0.95  # correlation
+        covs = [[stds[0] ** 2, stds[0] * stds[1] * corr],
+                [stds[0] * stds[1] * corr, stds[1] ** 2]]
+
+        eg, nug = np.random.multivariate_normal(means, covs, mesh.nele()).T
+        self.__D = el_tenzor(eg, nug, eltno)
+
+        # for i in range(mesh.nele()):
+        #     pass
+
         # self.__D = el_tenzor(mu[0], kb[0])
 
     def eltno(self):
@@ -447,8 +484,8 @@ class FunctionSpace(object):
         if boundary == 'cavern':
             d, alpha = self.nodal_forces()
             nind_c, nind_c1, nind_c2 = self.cavern_nodes_ind()
-            d_cav_top = depth + max(y) - max(y[nind_c])
-            d_cav_bot = depth + max(y) - min(y[nind_c])
+            d_cav_top = depth + np.max(y) - np.max(y[nind_c])
+            d_cav_bot = depth + np.max(y) - np.min(y[nind_c])
             pc_min = 0.2 * p * d_cav_bot  # minimum allowable cavern pressure, [Pa]
             pc_max = 0.8 * p * d_cav_top  # maximum allowable cavern pressure, [Pa]
 
@@ -483,7 +520,7 @@ class FunctionSpace(object):
 
         return f, sign
 
-    def creep_load_vector(self, dt, a, n, q, r, temp, stress, strain_crg, arrhenius=None, th=1):
+    def creep_load_vector(self, dt, a, n, q, r, temp, stress, strain_crg, arrhenius=None, omega=None):
         """
         assemble creep load vector
         :return:
@@ -503,7 +540,7 @@ class FunctionSpace(object):
                 ind = elt.dofnos()
                 B = self.strain_disp_matrix(elt.eltno())
                 D = elt.el_tenz()
-                fcre = 1 / 2 * th * area * np.dot(np.transpose(B), np.dot(D, strain_crg[:, elt.eltno()]))
+                fcre = 1 / 2 * area * np.dot(np.transpose(B), np.dot(D, strain_crg[:, elt.eltno()]))
                 fcr[ind] += fcre.reshape((6, 1))
 
             return fcr
@@ -514,15 +551,20 @@ class FunctionSpace(object):
             arr = np.exp(- q / (r * temp))
         else:
             arr = 1
-        g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * arr
-        strain_crg = strain_crg + g_crg * dt
+        if omega is None:
+            g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * arr
+            strain_crg = strain_crg + g_crg * dt
+        else:
+            g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * arr / ((1 - omega) ** n)
+            strain_crg = strain_crg + g_crg * dt
+
         f_cr = assemble_creep_forces_vector()
 
         return f_cr, strain_crg
 
     def gauss_strain(self, u):
         """
-        Stresses and strains evaluated at Gaussian points.
+        Element wise calculated strain.
         """
 
         strain = np.zeros((3, self.__nele))

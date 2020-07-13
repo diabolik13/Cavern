@@ -985,7 +985,7 @@ def save_plot_A(nt, mesh, output, folder, node):
             # ax.set_aspect('equal', 'box')
             # ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
 
-            ax.plot(output['elapsed time'] / 86400, z[node], 'ro-')
+            ax.plot(output['elapsed time'] / 86400, z[node], 'rx-')
             # yfmt = ScalarFormatterForceFormat()
             # yfmt.set_powerlimits((0, 0))
             # ax.yaxis.set_major_formatter(yfmt)
