@@ -45,7 +45,7 @@ r = 8.314  # gas constant, [J/mol/K]
 ym = [44e9, 44e9, 44e9]
 nu = [0.3, 0.3, 0.3]
 th = 1  # thickness of the domain, [m]
-nt = 20  # number of time steps, [-]
+nt = 5  # number of time steps, [-]
 dt = 86400  # time step, [s]
 scale = 4e2
 sign = 1
@@ -250,8 +250,8 @@ print("Total simulation time is {} days.\n Maximum elastic displacement is {} m,
     float("{0:.1e}".format(np.max(abs(output['displacement'][:, -1] - output['displacement'][:, 0]))))))
 
 # save 2D results
-# write_results(nt, mesh, output, filename.split(".")[0], '.xdmf', '.gif')
+write_results(nt, mesh, output, filename.split(".")[0], '.gif')
 # save parameters in point A evolution in time
-save_plot_A(nt, mesh, output, filename.split(".")[0], 700)
+# save_plot_A(nt, mesh, output, filename.split(".")[0], 700)
 # write results to xls file
 # write_xls(filename, output)

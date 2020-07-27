@@ -15,7 +15,19 @@ Please follow these steps to be able to run this project:
 
  2. Download [ParaView](https://www.paraview.org/) to see the results of the simulation.
 
- 3. Decide which format you want to use for saving the simulation results: *.xdmf, *.gif or *.png. You can also export the resulting set of every parameter to *.xls spreadsheet by using the following command:
+ 3. Decide which format you want to use for saving the simulation results: `*.xdmf`, `*.gif` or `*.png`. For example to save the results in the `*.xdmf` format, use the following:
+     ```shell
+     write_results(nt, mesh, output, filename.split(".")[0], '.xdmf')
+     ```
+     The results will be saved in the `~/output/mesh_filename/` folder of the project's root directory.
+
+ If you want to save evolution of the calculated parameters in time for an arbitrary point X on the domain, use the following line:
+     ```shell
+     save_plot_A(nt, mesh, output, filename.split(".")[0], X)
+     ```
+     where X - is the index of the node of interest.
+
+ You can also export the resulting set of every parameter to `*.xls` spreadsheet by using the following command:
      ```shell
      write_xls(filename, output)
      ```

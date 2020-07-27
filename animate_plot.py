@@ -98,7 +98,7 @@ def write_results(nt, mesh, output, folder, ext1, ext2=None, l=10):
         }
     }
 
-    if not (ext1 is None):
+    if ext1 == '.xdmf':
         Path('./output/' + folder).mkdir(parents=True, exist_ok=True)
         with meshio.xdmf.TimeSeriesWriter('./output/' + folder + '/output_data.xdmf') as writer:
             writer.write_points_cells(mesh.meshdata().points, mesh.meshdata().cells)
@@ -119,8 +119,8 @@ def write_results(nt, mesh, output, folder, ext1, ext2=None, l=10):
                                       data[4][1]['title'] + ', ' + data[4][1]['units']: data[4][1]['value'][:, i],
                                   })
 
-    if not (ext2 is None):
-        ext = ext2
+    if ext1 == '.gif' or ext1 == '.png':
+        ext = ext1
         if nt < 2:
             del data[4]
         Path('./output/' + folder).mkdir(parents=True, exist_ok=True)
