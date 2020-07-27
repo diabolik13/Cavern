@@ -32,11 +32,15 @@ Please follow these steps to be able to run this project:
      write_xls(filename, output)
      ```
 
- 4. Run the `main.py` script from terminal with:
+ 4. To take into account the cyclic loading conditions, set argument `cyclic == True`. To model the tertiary creep and damage evolution, set argument `damage == True`. To use the Newton-Raphson solver set argument `NR == True`, however it is not recommended to use it with complex physics such as damage evolution and cyclicity included due to yet uninvestigated convergence issues.
+ 
+ 5. Run the `main.py` script from terminal with:
     ```shell
     python main.py
     ```
     or in your IDE.
+    
+ 6. After running the simulation, you can find the `Default.log` log fine in the root folder with certain simulation parameters, e.g. how long did it take to finish the simulation and basic results of the model, such as maximum elastic response and maximum creep defirmation.
 
 ### Structure of the code
 The simulator is written in Finite Element Method Object Oriented Programming (FEMOOP) structure, which means that the FEM routine is implemented using classes and methods. The main classes, that form the engine of the simulator are contained in the `classes.py` library and namely are:
