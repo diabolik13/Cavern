@@ -1,8 +1,12 @@
+# Libraries
 import meshio
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
 import numpy as np
 import sympy as sp
 
-from elasticity import von_mises_stress
+from elasticity import von_mises_stress, showMeshPlot
 from CoolProp.CoolProp import PropsSI
 
 
@@ -11,21 +15,22 @@ def polyarea(coord):
     return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
 
 
-def el_tenzor(e, nu, eltno=None):
-    # Elastic modulus
-    # lamda = k - 2 / 3 * mu
-    # Elasticity tenzor
-    # d = np.array([[lamda + 2 * mu, lamda, 0],
-    #               [lamda, lamda + 2 * mu, 0],
-    #               [0, 0, mu]])
+def el_tenzor(e, nu, eltno=None, imp_1=None, imp_2=None):
     if eltno == None:
         d = e / (1 - nu ** 2) * np.array([[1, nu, 0],
                                           [nu, 1, 0],
                                           [0, 0, (1 - nu) / 2]])
     else:
-        d = e[eltno] / (1 - nu[eltno] ** 2) * np.array([[1, nu[eltno], 0],
-                                                        [nu[eltno], 1, 0],
-                                                        [0, 0, (1 - nu[eltno]) / 2]])
+        if imp_1 is not None:
+            E = (imp_1[eltno] * e[0] + imp_2[eltno] * e[1] + (1 - imp_1[eltno] - imp_2[eltno]) * e[2])
+            NU = (imp_1[eltno] * nu[0] + imp_2[eltno] * nu[1] + (1 - imp_1[eltno] - imp_2[eltno]) * nu[2])
+            d = E / (1 - NU ** 2) * np.array([[1, NU, 0],
+                                              [NU, 1, 0],
+                                              [0, 0, (1 - NU) / 2]])
+        else:
+            d = e[eltno] / (1 - nu[eltno] ** 2) * np.array([[1, nu[eltno], 0],
+                                                            [nu[eltno], 1, 0],
+                                                            [0, 0, (1 - nu[eltno]) / 2]])
     return d
 
 
@@ -286,7 +291,7 @@ class FiniteElement(object):
       derivative=True, do integral(f1*f2*dphi)
     """
 
-    def __init__(self, mesh, sfns, eltno, e, nu, imp=1):
+    def __init__(self, mesh, sfns, eltno, e, nu, imp_1=None, imp_2=None):
         """
         mesh is the mesh it is built on
         sfns is the Shapefuns member
@@ -318,29 +323,70 @@ class FiniteElement(object):
         # elasticity tenzor of the element
         # self.__D = el_tenzor(mu[mesh.cell_ph_group(eltno) - 1], kb[mesh.cell_ph_group(eltno) - 1])
         # self.__D = el_tenzor(e, nu)
+        self.__D = el_tenzor(e, nu, eltno, imp_1, imp_2)
 
-        # D = np.zeros((mesh.nele(),))
-        # eg = np.zeros((mesh.nele(),))
-        # nug = np.zeros((mesh.nele(),))
-        # mean = [e, nu]
-        # cov = [[3e17, 1000], [1000, 0.001]]
-        # x, y = np.random.multivariate_normal(mean, cov, mesh.nele()).T
-
-        xx = np.array([0.5 * e, 1.5 * e])
-        yy = np.array([0.5 * nu, 1.5 * nu])
+    def create_distribution(self, mesh, plot=False):
+        # Shale Young moduli and poisson ratio multivariate distribution
+        xx = np.array([10e9, 24e9])
+        yy = np.array([0.25, 0.35])
         means = [xx.mean(), yy.mean()]
         stds = [xx.std() / 3, yy.std() / 3]
         corr = 0.95  # correlation
         covs = [[stds[0] ** 2, stds[0] * stds[1] * corr],
                 [stds[0] * stds[1] * corr, stds[1] ** 2]]
-
         eg, nug = np.random.multivariate_normal(means, covs, mesh.nele()).T
-        self.__D = el_tenzor(eg, nug, eltno)
 
-        # for i in range(mesh.nele()):
-        #     pass
+        # Anhydrite Young moduli and poisson ratio multivariate distribution
+        xx = np.array([40e9, 58e9])
+        yy = np.array([0.2, 0.3])
+        means = [xx.mean(), yy.mean()]
+        stds = [xx.std() / 3, yy.std() / 3]
+        corr = 0.95  # correlation
+        covs = [[stds[0] ** 2, stds[0] * stds[1] * corr],
+                [stds[0] * stds[1] * corr, stds[1] ** 2]]
+        eg2, nug2 = np.random.multivariate_normal(means, covs, mesh.nele()).T
 
-        # self.__D = el_tenzor(mu[0], kb[0])
+        # Halite Young moduli and poisson ratio multivariate distribution
+        xx = np.array([27e9, 58e9])
+        yy = np.array([0.15, 0.43])
+        means = [xx.mean(), yy.mean()]
+        stds = [xx.std() / 3, yy.std() / 3]
+        corr = 0.95  # correlation
+        covs = [[stds[0] ** 2, stds[0] * stds[1] * corr],
+                [stds[0] * stds[1] * corr, stds[1] ** 2]]
+        eg3, nug3 = np.random.multivariate_normal(means, covs, mesh.nele()).T
+
+        # Potassium salt Young moduli and poisson ratio multivariate distribution
+        xx = np.array([26e9, 36e9])
+        yy = np.array([0.2, 0.25])
+        means = [xx.mean(), yy.mean()]
+        stds = [xx.std() / 3, yy.std() / 3]
+        corr = 0.95  # correlation
+        covs = [[stds[0] ** 2, stds[0] * stds[1] * corr],
+                [stds[0] * stds[1] * corr, stds[1] ** 2]]
+        eg4, nug4 = np.random.multivariate_normal(means, covs, mesh.nele()).T
+
+        # young modulus
+        e = np.concatenate((eg, eg2, eg3, eg4))
+        # poisson ration
+        nu = np.concatenate((nug, nug2, nug3, nug4))
+
+        # plot the distribution
+        if plot:
+            # create data
+            title1 = ['shale'] * mesh.nele()
+            title2 = ['anhydrite'] * mesh.nele()
+            title3 = ['halite'] * mesh.nele()
+            title4 = ['potash'] * mesh.nele()
+            title = title1 + title2 + title3 + title4
+            df = pd.DataFrame(
+                {'Young modulus, [Pa]': e, 'Poisson ratio, [-]': nu, 'Rock type:': title})
+            sns.lmplot(x='Young modulus, [Pa]', y='Poisson ratio, [-]', data=df, fit_reg=False, hue='Rock type:',
+                       legend=False, palette="Set2", markers=[".", ".", ".", "."])
+            plt.legend(loc='lower right')
+            plt.show()
+
+        return e, nu
 
     def eltno(self):
         """ access element number """
@@ -416,7 +462,7 @@ class FunctionSpace(object):
 
     """
 
-    def __init__(self, mesh, sfns, e, nu):
+    def __init__(self, mesh, sfns, e, nu, imp_1=None, imp_2=None):
         """
         mesh is the mesh
         sfns is the Shapefuns
@@ -432,7 +478,7 @@ class FunctionSpace(object):
         # mesh
         self.__mesh = mesh
         for n in range(self.__nele):
-            fe = FiniteElement(mesh, sfns, n, e, nu)
+            fe = FiniteElement(mesh, sfns, n, e, nu, imp_1, imp_2)
             self.__elts.append(fe)
 
     def size(self):
@@ -470,16 +516,17 @@ class FunctionSpace(object):
             k[ixgrid] += ke
         return k
 
-    def load_vector(self, p, temp, g, depth, th, et, i, sign, pressure, boundary):
+    def load_vector(self, rho, temp, g, depth, sign=None, i=None, period=None, pressure=None, boundary=None, th=1):
         """
         assemble load vector
         :return:
         """
-        c = 1
         x, y = self.__mesh.coordinates()
+        p = rho * g  # lithostatic pressure
 
-        if (i % 3 == 0) and i != 0:
-            sign = -sign
+        if period is not None:
+            if (i % period == 0) and i != 0:
+                sign = -sign
 
         if boundary == 'cavern':
             d, alpha = self.nodal_forces()
@@ -555,8 +602,8 @@ class FunctionSpace(object):
             g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * arr
             strain_crg = strain_crg + g_crg * dt
         else:
-            g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * arr / ((1 - omega) ** n)
-            strain_crg = strain_crg + g_crg * dt
+            g_crg = 3 / 2 * a * abs(np.power(svmg, n - 2)) * svmg * dstressg * arr
+            strain_crg = (strain_crg + g_crg * dt) / ((1 - omega) ** n)
 
         f_cr = assemble_creep_forces_vector()
 
@@ -672,89 +719,79 @@ class FunctionSpace(object):
                     d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
                     d = np.append(d, d1)
 
-        # alpha_deg = np.degrees(alpha)
-        # alpha_deg = np.column_stack((alpha_deg, nind_c))
-        # px = pr * np.cos(alpha) * d * w
-        # py = pr * np.sin(alpha) * d * w
-        # px = np.reshape(px, (len(px), 1))
-        # py = np.reshape(py, (len(py), 1))
-        #
-        # px[abs(px) < 0.001] = 0
-        # py[abs(py) < 0.001] = 0
-
         return d, alpha
 
-    def litho_forces_interface(self):
-        """
-        Evaluate x and y component of nodal forces on the cavern's wall
-        :return:
-        """
-        t_bnd, r_bnd = self.__mesh.litho_bnd()
-        node_ind = self.__mesh.edges()
-        x, y = self.__mesh.coordinates()
-        dt = np.array([])
-        dr = np.array([])
+    # def litho_forces_interface(self):
+    #     """
+    #     Evaluate x and y component of nodal forces on the cavern's wall
+    #     :return:
+    #     """
+    #     t_bnd, r_bnd = self.__mesh.litho_bnd()
+    #     node_ind = self.__mesh.edges()
+    #     x, y = self.__mesh.coordinates()
+    #     dt = np.array([])
+    #     dr = np.array([])
+    #
+    #     for i in t_bnd:
+    #         index = np.where((node_ind == i))[0]
+    #         nindex = node_ind[index].flatten()
+    #         seen = set([i])
+    #         neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
+    #
+    #         if abs(x[i]) < max(x):
+    #             d1 = abs(x[i] - x[neighbours[0]])
+    #             d2 = abs(x[i] - x[neighbours[1]])
+    #             dt = np.append(dt, (d1 + d2) / 2)
+    #
+    #         elif abs(x[i]) == max(x):
+    #             d1 = abs(x[i] - x[neighbours[0]])
+    #             dt = np.append(dt, d1 / 2)
+    #
+    #     for j in r_bnd:
+    #         index = np.where((node_ind == j))[0]
+    #         nindex = node_ind[index].flatten()
+    #         seen = set([j])
+    #         neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
+    #
+    #         if abs(y[j]) < max(y):
+    #             d1 = abs(y[j] - y[neighbours[0]])
+    #             d2 = abs(y[j] - y[neighbours[1]])
+    #             dr = np.append(dr, (d1 + d2) / 2)
+    #
+    #         elif abs(y[j]) == max(y):
+    #             if y[j] == y[neighbours[0]]:
+    #                 d1 = abs(y[j] - y[neighbours[1]])
+    #             else:
+    #                 d1 = abs(y[j] - y[neighbours[0]])
+    #             dr = np.append(dr, d1 / 2)
+    #
+    #     # px = -p * dr * w
+    #     # py = -p * dt * w
+    #
+    #     return dr, dt
 
-        for i in t_bnd:
-            index = np.where((node_ind == i))[0]
-            nindex = node_ind[index].flatten()
-            seen = set([i])
-            neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
-
-            if abs(x[i]) < max(x):
-                d1 = abs(x[i] - x[neighbours[0]])
-                d2 = abs(x[i] - x[neighbours[1]])
-                dt = np.append(dt, (d1 + d2) / 2)
-
-            elif abs(x[i]) == max(x):
-                d1 = abs(x[i] - x[neighbours[0]])
-                dt = np.append(dt, d1 / 2)
-
-        for j in r_bnd:
-            index = np.where((node_ind == j))[0]
-            nindex = node_ind[index].flatten()
-            seen = set([j])
-            neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
-
-            if abs(y[j]) < max(y):
-                d1 = abs(y[j] - y[neighbours[0]])
-                d2 = abs(y[j] - y[neighbours[1]])
-                dr = np.append(dr, (d1 + d2) / 2)
-
-            elif abs(y[j]) == max(y):
-                if y[j] == y[neighbours[0]]:
-                    d1 = abs(y[j] - y[neighbours[1]])
-                else:
-                    d1 = abs(y[j] - y[neighbours[0]])
-                dr = np.append(dr, d1 / 2)
-
-        # px = -p * dr * w
-        # py = -p * dt * w
-
-        return dr, dt
-
-    def dfcr_du(self, decr, de, ds, th=1):
-        dF_du = np.zeros((self.__nDOFs, self.__nDOFs))
-
-        for elt in self.__elts:
-            area = elt.area()
-            ind = elt.dofnos()
-            B = self.strain_disp_matrix(elt.eltno())
-            D = elt.el_tenz()
-            Kte = th * area * np.dot(np.transpose(B), D)
-            decr = np.array([
-                [de[0, elt.eltno()] / ds[0, elt.eltno()], de[0, elt.eltno()] / ds[1, elt.eltno()],
-                 de[0, elt.eltno()] / ds[2, elt.eltno()]],
-                [de[1, elt.eltno()] / ds[0, elt.eltno()], de[1, elt.eltno()] / ds[1, elt.eltno()],
-                 de[1, elt.eltno()] / ds[2, elt.eltno()]],
-                [de[2, elt.eltno()] / ds[0, elt.eltno()], de[2, elt.eltno()] / ds[1, elt.eltno()],
-                 de[2, elt.eltno()] / ds[2, elt.eltno()]]])
-            # decr = decr.transpose()
-            dfcre = np.dot(Kte, np.dot(decr, np.dot(D, B)))
-            ixgrid = np.ix_(ind, ind)
-            dF_du[ixgrid] += dfcre
-
-        return dF_du
+    # def dfcr_du(self, decr, de, ds, th=1):
+    #     dF_du = np.zeros((self.__nDOFs, self.__nDOFs))
+    #
+    #     for elt in self.__elts:
+    #         area = elt.area()
+    #         ind = elt.dofnos()
+    #         B = self.strain_disp_matrix(elt.eltno())
+    #         D = elt.el_tenz()
+    #         Kte = th * area * np.dot(np.transpose(B), D)
+    #         decr = np.array([
+    #             [de[0, elt.eltno()] / ds[0, elt.eltno()], de[0, elt.eltno()] / ds[1, elt.eltno()],
+    #              de[0, elt.eltno()] / ds[2, elt.eltno()]],
+    #             [de[1, elt.eltno()] / ds[0, elt.eltno()], de[1, elt.eltno()] / ds[1, elt.eltno()],
+    #              de[1, elt.eltno()] / ds[2, elt.eltno()]],
+    #             [de[2, elt.eltno()] / ds[0, elt.eltno()], de[2, elt.eltno()] / ds[1, elt.eltno()],
+    #              de[2, elt.eltno()] / ds[2, elt.eltno()]]])
+    #         # decr = decr.transpose()
+    #         dfcre = np.dot(Kte, np.dot(decr, np.dot(D, B)))
+    #         ixgrid = np.ix_(ind, ind)
+    #         dF_du[ixgrid] += dfcre
+    #
+    #     return dF_du
 
 
 class anl(object):
