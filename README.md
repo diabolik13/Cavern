@@ -13,7 +13,7 @@ Please follow these steps to be able to run this project:
 
  1. Install required dependencies. It is highly recommended to install all dependencies in `pipenv` virtual environment (see [guide](https://realpython.com/pipenv-guide/)) using the pipfile (see [guide](https://pipenv-fork.readthedocs.io/en/latest/basics.html)) to make sure that all necessary dependencies are installed and there are no conflicts in the libraries versions.
 
- 2. Download [ParaView](https://www.paraview.org/) to see the results of the simulation (not compulsory).
+ 2. Download [ParaView](https://www.paraview.org/) to see the results of the simulation (to open time series of every parameter saved in `*.xdmf` format).
 
  3. Decide which format you want to use for saving the simulation results: `*.xdmf`, `*.gif` or `*.png`. For example to save the results in the `*.xdmf` format, use the following:
      ```shell
