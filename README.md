@@ -11,9 +11,9 @@ Input of the problem is given by a set of parameters, namely rock salt and overb
 ### Getting Started
 Please follow these steps to be able to run this project:
 
- 1. Install required dependencies. It is highly recommended to install all dependencies in pipenv virtual environment (see [guide](https://realpython.com/pipenv-guide/)) using the pipfile (see [guide](https://pipenv-fork.readthedocs.io/en/latest/basics.html)).
+ 1. Install required dependencies. It is highly recommended to install all dependencies in `pipenv` virtual environment (see [guide](https://realpython.com/pipenv-guide/)) using the pipfile (see [guide](https://pipenv-fork.readthedocs.io/en/latest/basics.html)).
 
- 2. Download [ParaView](https://www.paraview.org/) to see the results of the simulation.
+ 2. Download [ParaView](https://www.paraview.org/) to see the results of the simulation (not compulsory).
 
  3. Decide which format you want to use for saving the simulation results: `*.xdmf`, `*.gif` or `*.png`. For example to save the results in the `*.xdmf` format, use the following:
      ```shell
@@ -21,7 +21,7 @@ Please follow these steps to be able to run this project:
      ```
      The results will be saved in the `~/output/mesh_filename/` folder of the project's root directory.
 
-    If you want to save evolution of the calculated parameters in time for an arbitrary point X on the domain, use the following line:
+    If you want to save evolution of the calculated parameters in time for an arbitrary point A on the domain, use the following line:
      ```shell
      save_plot_A(nt, mesh, output, filename.split(".")[0], X)
      ```
