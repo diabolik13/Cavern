@@ -15,18 +15,24 @@ Please follow these steps to be able to run this project:
 
  2. Download [ParaView](https://www.paraview.org/) to see the results of the simulation.
 
- 3. Decide which format you want to use for saving the simulation results: *.xdmf, *.gif or *.png. You can also export the resulting set of every parameter to *xls spreadsheet by using the following command:
+ 3. Decide which format you want to use for saving the simulation results: *.xdmf, *.gif or *.png. You can also export the resulting set of every parameter to *.xls spreadsheet by using the following command:
      ```shell
      write_xls(filename, output)
      ```
 
- 4. Run the 'main.py' script from terminal with:
+ 4. Run the `main.py` script from terminal with:
     ```shell
     python main.py
     ```
     or in your IDE.
 
 ### Structure of the code
-The simulator is written in Finite Element Method Object Oriented Programming (FEMOOP) structure, which means that the FEM routine is implemented using classes and methods. The main classes, that form the engine of the simulator are contained in the 'classes.py' library and namely are:
+The simulator is written in Finite Element Method Object Oriented Programming (FEMOOP) structure, which means that the FEM routine is implemented using classes and methods. The main classes, that form the engine of the simulator are contained in the `classes.py` library and namely are:
 
- 1. 'class Mesh(object):' - Instance of class `Mesh` 
+ 1. class `Mesh()` - Instance of this class is an object with mesh parameters, such as nodal coordinates, nodal indexes, element indexes, cavern wall nodes indexes etc.
+
+ 2. class `Shapefns()` - Instance of this class is an object with shape functions and their derivatives values at local coordinates of an arbitrary finite element (fe).
+
+ 3. class `FiniteElement()` - Instance of this class is an object which represents fe. The methods of this class are used to access such parameters of a particular fe as corner points indexes and coordinates, area, transformation matrix from global to local coordinates (Jacobian matrix), values of derivatives of shape functions on this element as well as mechanical properties and elasticity tenzor.
+
+ 4. class `FunctionSpace()` - Instance of this class is an object that contains list of all fe of the domain with corresponding properties. Methods of the class allow to generate strain-displacement matrix `train_disp_matrix()`, global stiffness matrix `stiff_matrix()`, vector of external loads `load_vector()` and vector of fictitious creep forces `creep_load_vector()` which are required to solve the problem. Apart from the aforementioned methods, instance of `FunctionSpace()` class contains processing methods such as Gauss strain and stress calculation `gauss_strain()`, `gauss_stress()`, method which allows to extrapolate the aforementioned Gauss strains and stresses to nodal points `nodal_extrapolation()` and methods that are used to implement Newmann boundary conditions (NBC) on the cavern's wall: method that extracts the indexes of the cavern nodes `cavern_nodes_ind()` and method that implements the NBC at these nodes `nodal_forces()`.
