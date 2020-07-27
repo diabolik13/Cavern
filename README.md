@@ -6,7 +6,7 @@ The aim of this 2D Finite Element Method (FEM) based simulator is to calculate d
 
 The capabilities of the simulator include quantification of displacement, strain and stress of linear elastic model, tertiary and secondary creep model, cyclic loading model, heterogeneous model and combination of the aforementioned models.
 
-Input of the problem is given by a set of parameters, namely rock salt and overburden densities, depth of the roof of the cavern, temperature of the rock salt domain and set of material properties.
+Input of the problem is given by a set of parameters, namely rock salt and overburden densities, depth of the roof of the cavern, temperature of the rock salt domain and set of material properties such as for example Young's modulus, Poisson ratio, creep exponent etc.
 
 ### Getting Started
 Please follow these steps to be able to run this project:
