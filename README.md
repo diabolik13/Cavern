@@ -19,7 +19,6 @@ Please follow these steps to be able to run this project:
      ```shell
      write_results(nt, mesh, output, filename.split(".")[0], '.xdmf')
      ```
-     The results will be saved in the `~/output/mesh_filename/` folder of the project's root directory.
 
     If you want to save evolution of the calculated parameters in time for an arbitrary point A on the domain, use the following line:
      ```shell
@@ -40,7 +39,7 @@ Please follow these steps to be able to run this project:
     ```
     or in your IDE.
     
- 6. After running the simulation, you can find the `Default.log` log fine in the root folder with certain simulation parameters, e.g. how long did it take to finish the simulation and basic results of the model, such as maximum elastic response and maximum creep defirmation.
+ 6. After running the simulation, you can find the `Default.log` log fine in the root folder with certain simulation parameters, e.g. how long did it take to finish the simulation and basic results of the model, such as maximum elastic response and maximum creep deformation. The results (if specified) will be saved in the `~/output/mesh_filename/` folder of the project's root directory.
 
 ### Structure of the code
 The simulator is written in Finite Element Method Object Oriented Programming (FEMOOP) structure, which means that the FEM routine is implemented using classes and methods. The main classes, that form the engine of the simulator are contained in the `classes.py` library and namely are:
