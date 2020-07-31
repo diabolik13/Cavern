@@ -31,8 +31,8 @@ mu = 9842e6                             # Shear modulus (Pa)
 pr = -8e6                                                   # pressure (Pa)
 test2 = -np.linspace(2e6, 8e6, 7)                           # was first called test2!       og.. 8e6
 test1 = -np.linspace(7e6, 3e6, 5)
-pr = np.concatenate(5*(test2, test1), axis=0)               # increase/decrease cycle
-# pr = np.insert(pr, len(pr), -2e6)
+pr = np.concatenate(1*(test2, test1), axis=0)               # increase/decrease cycle
+pr = np.insert(pr, len(pr), -2e6)
 # pr = np.concatenate((test1, test2), axis=0)               # decrease/increase cycle
 
 # def cavern_pressure(c):      # might need to adapt this later on
@@ -41,6 +41,10 @@ pr = np.concatenate(5*(test2, test1), axis=0)               # increase/decrease 
 #     pr = np.concatenate(c * (inc_pr, dec_pr), axis=0)
 #     pr = np.insert(pr, len(pr), -2e6)
 #     return pr
+
+# find the elements:
+# tosti = np.where(p[1] == 0)
+# test = np.where(t == 151)  # find the appropriate element
 
 # Viscoplastic parameters:
 sigma_t = 3 * 1.8                       # Tensile strength (MPa)
@@ -57,11 +61,15 @@ eta = 0.7                               # (-)
 alpha_1 = 0.00005                       # (MPa^(2-n))
 
 mu1 = 5.06e-7 / 86400                   # (s-1)
-F0 = 100                                # (-)
+F0 = 1                                # (-)
 N1 = 3                                  # (-)
+
+alpha_0 = 1                             # (MPa)
+kv = 0.275                              # (-)
 
 # Switch between solving methods:
 implicit = 0                            # solve it one go (0) or with NR (1)
+associate = 0                           # associated flow rule (0) or non associated flow rule (1)
 
 # Compression case:
 # l_bnd, r_bnd, b_bnd, t_bnd = extract_bnd(p, dof)
@@ -72,6 +80,9 @@ nnodes = len(p[0])
 disp_out = np.zeros((2 * nnodes, len(pr)))
 stress_out = np.zeros((3 * nnodes, len(pr)))
 strain_out = np.zeros((3 * nnodes, len(pr)))
+lin_disp_out = np.zeros((2 * nnodes, len(pr)))
+lin_stress_out = np.zeros((3 * nnodes, len(pr)))
+lin_strain_out = np.zeros((3 * nnodes, len(pr)))
 evp_out = np.zeros((3 * nnodes, len(pr)))           # total accumulated viscoplastic strain for plotting purposes
 evp_tot = np.zeros((3, len(t[0])))       # array with total accumulated viscoplastic strain
 I1_out = np.zeros((len(t[0]), len(pr)))         # for yield function plot
@@ -109,12 +120,12 @@ for j in range(len(pr)):
     residual = np.dot(k, u) - f0
 
     # Remember CST formulation for both stress and strain:
-    straing, stressg = gauss_stress_strain_tot(p, t, u, D, evp_tot)
+    straing, stressg = gauss_stress_strain(p, t, u, D)
     strain, stress = nodal_stress_strain(p, t, straing, stressg)
 
-    # disp_out[:, j] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
-    # strain_out[:, j] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
-    # stress_out[:, j] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
+    lin_disp_out[:, j] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
+    lin_strain_out[:, j] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
+    lin_stress_out[:, j] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
 
     # Plot Results:
     # plot_results(p, t, 'displacement', 'strain', 'stress', u, strain, stress)
@@ -133,7 +144,7 @@ for j in range(len(pr)):
         J3 = third_dev_stress_inv(I1, I2)
         theta, theta_degrees = lode_angle(stress_mpa, J2, J3)
 
-        alpha, alpha_q = hardening_param(straing, Fvp, alpha_1, eta)
+        alpha, alpha_q = hardening_param(t, straing, Fvp, alpha_1, eta, alpha_0, kv, associate)
         Fvp = yield_function(I1, J2, alpha, theta, beta_1, beta, mv, n, gamma, F0)
 
         # Plot yield function at nodal points over the entire mesh:
@@ -151,9 +162,9 @@ for j in range(len(pr)):
         dQvpdxx, dQvpdyy, dQvpdxy = chain_rule(dQvpdI1, dQvpdJ2, dQvpdJ3, dI1dxx, dJ2dxx, dJ3dxx, dI1dyy, dJ2dyy,
                                                dJ3dyy, dI1dxy, dJ2dxy, dJ3dxy)
 
-        evp = viscoplastic_strain(t, Fvp, dQvpdxx, dQvpdyy, dQvpdxy, mu1, N1, 1)       # scaled this one for first cycle to 50 (o.g. 1)
+        evp = viscoplastic_strain(t, Fvp, dQvpdxx, dQvpdyy, dQvpdxy, mu1, N1, 50)       # scaled this one for first cycle to 50 (o.g. 1)
         evp_tot = evp_tot + evp
-        fvp = assemble_vp_force_vector(dof, p, t, D, evp, z)
+        fvp = assemble_vp_force_vector(dof, p, t, D, evp_tot, z)
 
         f = f0 + fvp
         k, f = impose_dirichlet(k, f, d_bnd)
@@ -162,14 +173,14 @@ for j in range(len(pr)):
         straing1, stressg1 = gauss_stress_strain(p, t, u1, D)
         strain1, stress1 = nodal_stress_strain(p, t, straing1, stressg1)
         evp_nod, _ = nodal_stress_strain(p, t, evp_tot, stressg)        # accumulated visco strain
-        # plot_results(p, t, 'displacement', 'strain', 'stress', u1, strain1, stress1)
+        plot_results(p, t, 'displacement', 'strain', 'stress', u1, strain1, stress1)
 
         # plot_parameter(p, t, evp_nod[0, :])  # for x direction
         # plot_parameter(p, t, evp_nod[1, :])
-        disp_out[:, j] = np.concatenate((u1[::2].reshape(nnodes, ), u1[1::2].reshape(nnodes, )), axis=0)
-        strain_out[:, j] = np.concatenate((strain1[0], strain1[1], strain1[2]), axis=0)
-        stress_out[:, j] = np.concatenate((stress1[0], stress1[1], stress1[2]), axis=0)
-        evp_out[:, j] = np.concatenate((evp_nod[0], evp_nod[1], evp_nod[2]), axis=0)        # accumulated strain
+        disp_out[:, j] = np.concatenate((u1[::2].reshape(nnodes, ), u1[1::2].reshape(nnodes, )), axis=0)        # total displacement
+        strain_out[:, j] = np.concatenate((strain1[0], strain1[1], strain1[2]), axis=0)                         # total strain
+        stress_out[:, j] = np.concatenate((stress1[0], stress1[1], stress1[2]), axis=0)                         # total stress
+        evp_out[:, j] = np.concatenate((evp_nod[0], evp_nod[1], evp_nod[2]), axis=0)                            # total viscoplastic strain
         I1_out[:, j] = I1
         J2_out[:, j] = J2
 
@@ -182,6 +193,9 @@ for j in range(len(pr)):
         evp = np.zeros((3, len(t[0])))                      # used for the alpha coefficient
         Fvp = np.zeros(len(t[0]))                                 # used for the alpha coefficient
 
+        straing, stressg = gauss_stress_strain_tot(p, t, u, D, evp_tot)     # total strain
+        strain, stress = nodal_stress_strain(p, t, straing, stressg)
+
         while converged == 0:
             stress_mpa = convert_stress(stressg)
             I1 = first_stress_inv(stress_mpa, sigma_t)
@@ -191,12 +205,8 @@ for j in range(len(pr)):
             J3 = third_dev_stress_inv(I1, I2)
 
             theta, theta_degrees = lode_angle(stress_mpa, J2, J3)
-            alpha, alpha_q = hardening_param(straing, Fvp, alpha_1, eta)
+            alpha, alpha_q = hardening_param(t, straing, Fvp, alpha_1, eta, alpha_0, kv, associate)
             Fvp = yield_function(I1, J2, alpha, theta, beta_1, beta, mv, n, gamma, F0)
-
-            # Plot yield function at nodal points over the entire mesh:
-            # Fvp_nod = nodal_yield_function(p, t, Fvp)
-            # plot_parameter(p, t, Fvp_nod)
 
             Qvp = potential_function(I1, J2, alpha_q, theta, beta_1, beta, mv, n, gamma)
 
@@ -227,13 +237,13 @@ for j in range(len(pr)):
             stress_mpa = convert_stress(stressg)
 
             I1 = first_stress_inv(stress_mpa, sigma_t)
-
             I2 = second_stress_inv(stress_mpa)
             J2 = second_dev_stress_inv(I1, I2)
             J3 = third_dev_stress_inv(I1, I2)
 
             theta, theta_degrees = lode_angle(stress_mpa, J2, J3)
-            alpha, alpha_q = hardening_param(straing, Fvp, alpha_1, eta)
+            alpha, alpha_q = hardening_param(t, straing, Fvp, alpha_1, eta, alpha_0, kv, associate)
+
             Fvp = yield_function(I1, J2, alpha, theta, beta_1, beta, mv, n, gamma, F0)
 
             Qvp = potential_function(I1, J2, alpha_q, theta, beta_1, beta, mv, n, gamma)
@@ -265,8 +275,14 @@ for j in range(len(pr)):
             if res < conv or iter >= max_iter:
                 converged = 1
 
+        # Plot yield function at nodal points over the entire mesh:
+        # Fvp_nod = nodal_yield_function(p, t, Fvp)
+        # plot_parameter(p, t, Fvp_nod)
+
         evp_tot = evp_tot + evp
         evp_nod, _ = nodal_stress_strain(p, t, evp_tot, stressg)
+        # straing, stressg = gauss_stress_strain_tot(p, t, u, D, evp_tot)  # total strain     ADDED, No need for this line (kishan told me)
+        # strain, stress = nodal_stress_strain(p, t, straing, stressg)                    # ADDED, no need for this line (kishan told me)
         disp_out[:, j] = np.concatenate((u[::2].reshape(nnodes, ), u[1::2].reshape(nnodes, )), axis=0)
         strain_out[:, j] = np.concatenate((strain[0], strain[1], strain[2]), axis=0)
         stress_out[:, j] = np.concatenate((stress[0], stress[1], stress[2]), axis=0)
@@ -274,69 +290,6 @@ for j in range(len(pr)):
         I1_out[:, j] = I1
         J2_out[:, j] = J2
 
+        plot_results(p, t, 'displacement', 'strain', 'stress', u, strain, stress)
 
-# find the elements:
-test = np.where(t == 91)  # find the appropriate element
-
-# quick overvieuw if evp is really nonlinear
-# plt.figure()        # looks alright :)
-# plt.plot(evp_out[5, :], pr)
-# plt.show()
-
-# quick overview if lin el is a straight line
-# plt.figure()        # looks alright :)
-# plt.plot(strain_out[5, :] - evp_out[5, :], pr)
-# plt.show()
-
-# Yield function plot: (element 3)
-# alpha_t = np.array([0, 0.00024, 0.0006, 0.00093, 0.0018])
-# I1a = np.linspace(0, 120, 50)
-# I1b = I1a + sigma_t  # MPa
-# J2a = np.zeros((5, 50))
-# for i in range(len(alpha_t)):
-#     J2a[i] = (-alpha_t[i] * np.power(I1b, n) + gamma * np.power(I1b, 2)) * np.power(
-#         np.exp(beta_1 * I1b) - beta * np.cos(3 * theta[0]), mv)
-#     J2a[J2a < 0] = 0
-#
-# plt.figure()  # could add the dilatancy boundary in the figure
-# plt.plot(I1a, np.sqrt(J2a[0, :]), '-o')  # line plots
-# plt.plot(I1a, np.sqrt(J2a[1, :]), '-o')
-# plt.plot(I1a, np.sqrt(J2a[2, :]), '-o')
-# plt.plot(I1a, np.sqrt(J2a[3, :]), '-o')
-# plt.plot(I1a, np.sqrt(J2a[4, :]), '-o')
-# plt.plot(I1_out[3, :], np.sqrt(J2_out[3, :]), 'ob')     # all points for element 3 full cycle! scaled version!
-# plt.xlabel('I1 ')
-# plt.ylabel('sqrt(J2)')
-# plt.ylim(0, 45)
-# plt.title('Yield function')
-# plt.show()
-
-# plt.figure()
-# plt.plot(np.abs(strain_out[5, :]), np.abs(pr))
-# plt.xlabel('Strain (-)')
-# plt.ylabel('Pressure (Pa)')
-# plt.title('5 Loading/unloading cycles for element 5 in x direction')
-# plt.show()
-
-
-# plot for strain vs pressure for one cycle
-plt.figure()
-plt.plot(np.abs(strain_out[5, :]), np.abs(pr))
-plt.xlabel('Strain (-)')
-plt.ylabel('Pressure (Pa)')
-plt.title('Loading unloading cycle for element 5 in x direction (scaled x50)')
-plt.show()
-
-# TODO finalise the model and create nicer plots to look at!
-
-plt.figure()
-_ = plt.hist(evp[0, :], bins=5)  # arguments are passed to np.histogram
-plt.title("Histogram with 'auto' bins")
-plt.show()
-
-# Timer:
-# start_time = timeit.default_timer()
-# code you want to evaluate
-# elapsed = timeit.default_timer() - start_time
-
-print('done')
+# plot_results(p, t, 'displacement', 'strain', 'stress', u, strain, stress)
