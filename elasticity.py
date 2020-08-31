@@ -10,7 +10,9 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 def impose_dirichlet(k, f, d_bnd):
-    """Impose Dirichlet boundary conditions."""
+    """
+    Impose Dirichlet boundary conditions.
+    """
 
     k[d_bnd, :] = 0
     k[:, d_bnd] = 0
@@ -21,6 +23,10 @@ def impose_dirichlet(k, f, d_bnd):
 
 
 def deviatoric_stress(stress):
+    """
+    Calculate deviatoric stress.
+    """
+
     stressx = stress[0]
     stressy = stress[1]
     stressxy = stress[2]
@@ -33,6 +39,9 @@ def deviatoric_stress(stress):
 
 
 def von_mises_stress(stress):
+    """
+    Calculate von Mises stress.
+    """
     dstress = deviatoric_stress(stress)
     stressx = stress[0]
     stressy = stress[1]
@@ -44,10 +53,16 @@ def von_mises_stress(stress):
 
 
 def solve_disp(k, f):
+    """
+    Gaussian elimination to solve for displacements.
+    """
     return np.linalg.solve(k, f)
 
 
 def showMeshPlot(nodes, elements, values):
+    """
+    Plot the input parameter 'values' elementwise.
+    """
     x = nodes[0, :]
     y = nodes[1, :]
 
@@ -89,7 +104,9 @@ def showMeshPlot(nodes, elements, values):
 
 
 def save_plot_A(nt, mesh, output, folder, node):
-    """Saves results for one particular point."""
+    """
+    Saves results for one particular point.
+    """
 
     from matplotlib.ticker import ScalarFormatter
     from pathlib import Path
@@ -206,7 +223,13 @@ def save_plot_A(nt, mesh, output, folder, node):
             ax.grid(True)
             ax.set_xlabel('elapsed time, [days]', fontsize=20)
             ax.set_ylabel(label + ', ' + units, fontsize=20)
-            plt.savefig(folder + label + '_vs_disp.png')
+            # if label == 'strain_x':
+            #     plt.ylim(-2.2e-5, -1e-5)
+            plt.xticks(fontsize=18)
+            plt.yticks(fontsize=18)
+            plt.xlim(0, np.max(output['elapsed time'] / 86400))
+
+            plt.savefig(folder + label + '_vs_disp.eps', format='eps')
             # plt.show()
             plt.close(fig)
 
@@ -214,6 +237,9 @@ def save_plot_A(nt, mesh, output, folder, node):
 
 
 def plot_parameter(mesh, f, folder=None, u=0, amp=0, l=10):
+    """
+    Plot parameter 'f' evaluated at nodal points.
+    """
     p = mesh.coordinates()
     t = mesh.cells()
     f = f.reshape((mesh.nnodes(),))
@@ -266,12 +292,18 @@ def check_matrix(k):
 
 
 def hist(a):
+    """
+    Show histogram of 'a'.
+    """
     plt.hist(a, bins='auto')
     plt.title("Histogram with 'auto' bins")
     plt.show()
 
 
 def write_xls(filename, output):
+    """
+    Write output results to *.xlsx spreadsheet.
+    """
     workbook = xlsxwriter.Workbook('./output/' + filename.split(".")[0] + '/data.xlsx')
     worksheet = workbook.add_worksheet()
     row = 0
@@ -291,5 +323,37 @@ def write_xls(filename, output):
                 worksheet.write(row, col + i, item)
                 i += 1
 
-
     workbook.close()
+
+
+def polyarea(coord):
+    """
+    Calculate are of fe with given corner points coordinates 'coord'.
+    """
+    x, y = coord
+    return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
+
+
+def el_tenzor(e, nu, eltno=None, imp_1=None, imp_2=None):
+    """
+    Evaluate elasticity tensor for a given element.
+    """
+    if eltno == None:
+        d = e / (1 - nu ** 2) * np.array([[1, nu, 0],
+                                          [nu, 1, 0],
+                                          [0, 0, (1 - nu) / 2]])
+    else:
+        if imp_1 is not None:
+            E = (imp_1[eltno] * e[0] + imp_2[eltno] * e[1] + (1 - imp_1[eltno] - imp_2[eltno]) * e[2])
+            NU = (imp_1[eltno] * nu[0] + imp_2[eltno] * nu[1] + (1 - imp_1[eltno] - imp_2[eltno]) * nu[2])
+            d = E / (1 - NU ** 2) * np.array([[1, NU, 0],
+                                              [NU, 1, 0],
+                                              [0, 0, (1 - NU) / 2]])
+        else:
+            # d = e[eltno] / (1 - nu[eltno] ** 2) * np.array([[1, nu[eltno], 0],
+            #                                                 [nu[eltno], 1, 0],
+            #                                                 [0, 0, (1 - nu[eltno]) / 2]])
+            d = e / (1 - nu ** 2) * np.array([[1, nu, 0],
+                                              [nu, 1, 0],
+                                              [0, 0, (1 - nu) / 2]])
+    return d

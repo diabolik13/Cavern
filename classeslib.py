@@ -5,33 +5,10 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import sympy as sp
+import sys
 
-from elasticity import von_mises_stress, showMeshPlot
+from elasticity import *
 from CoolProp.CoolProp import PropsSI
-
-
-def polyarea(coord):
-    x, y = coord
-    return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
-
-
-def el_tenzor(e, nu, eltno=None, imp_1=None, imp_2=None):
-    if eltno == None:
-        d = e / (1 - nu ** 2) * np.array([[1, nu, 0],
-                                          [nu, 1, 0],
-                                          [0, 0, (1 - nu) / 2]])
-    else:
-        if imp_1 is not None:
-            E = (imp_1[eltno] * e[0] + imp_2[eltno] * e[1] + (1 - imp_1[eltno] - imp_2[eltno]) * e[2])
-            NU = (imp_1[eltno] * nu[0] + imp_2[eltno] * nu[1] + (1 - imp_1[eltno] - imp_2[eltno]) * nu[2])
-            d = E / (1 - NU ** 2) * np.array([[1, NU, 0],
-                                              [NU, 1, 0],
-                                              [0, 0, (1 - NU) / 2]])
-        else:
-            d = e[eltno] / (1 - nu[eltno] ** 2) * np.array([[1, nu[eltno], 0],
-                                                            [nu[eltno], 1, 0],
-                                                            [0, 0, (1 - nu[eltno]) / 2]])
-    return d
 
 
 class Mesh(object):
@@ -52,7 +29,7 @@ class Mesh(object):
         """
         m = meshio.read(filename)
 
-        #  Coordinates
+        #  Coordinates converted from -1...1 domain generated in Gmsh to a given scale defined by xfactor and yfactor
         m.points[:, 0] *= xfactor
         m.points[:, 1] *= yfactor
 
@@ -186,7 +163,8 @@ class Mesh(object):
                 t_bnd_x = np.append(t_bnd_x, i * 2)
                 t_bnd_y = np.append(t_bnd_y, i * 2 + 1)
 
-        # d_bnd = np.concatenate((b_bnd, t_bnd, l_bnd, r_bnd))
+        # after dofs of the left, right, bottom and top edges are accessed, the function will return only the array of
+        # the dofs of the edges, where dbc are chosen to be implemented by the user's choice.
         if not (lx == False):
             d_bnd = np.concatenate((d_bnd, l_bnd_x))
         if not (ly == False):
@@ -206,19 +184,27 @@ class Mesh(object):
 
         return d_bnd
 
-    # @classmethod
     def update_mesh(self, u):
+        """
+        Updates mesh coordinates after deformation 'u', if specified by user.
+        """
         self.__nodes[0] += np.transpose(u[::2].reshape((self.__Nnodes,)))
         self.__nodes[1] += np.transpose(u[::2].reshape((self.__Nnodes,)))
         self.__pointsdata[:, 0] += np.transpose(u[::2].reshape((self.__Nnodes,)))
         self.__pointsdata[:, 1] += np.transpose(u[::2].reshape((self.__Nnodes,)))
 
     def peak(self, sigma, xs, ys):
+        """
+        Function used to generate the impurities content in 2D.
+        """
         x, y = self.__nodes
         f = np.exp(-((x - xs) ** 2) / sigma ** 2 - ((y - ys) ** 2) / sigma ** 2)
         return f
 
     def onedpeak(self, sigma, ys):
+        """
+        Function used to generate the impurities content in 1D.
+        """
         x, y = self.__nodes
         f = np.exp(- ((y - ys) ** 2) / sigma ** 2)
         return f
@@ -417,7 +403,13 @@ class FiniteElement(object):
         return self.__numDofs
 
     def jacobi(self, inv=False):
-        """calculate J to perform local to global coordinates transformation"""
+        """
+        calculate J to perform local to global coordinates transformation
+        x,y: coordinates
+        4 jacobi(inv=False): jacobian
+        5 jacobi(inv=True): invariant of the jacobian
+        """
+
         x, y = self.__endpts
         xc = np.zeros((3, 3))
         yc = np.zeros((3, 3))
@@ -446,20 +438,9 @@ class FiniteElement(object):
 
 class FunctionSpace(object):
     """
-    A FunctionSpace has a list of elements
+    A FunctionSpace has a list of elements with given parameters (area, elasticity tensor etc)
     numbered and with coords according to mesh
-    FunctionSpace(mesh,sfns): constructor, sfns is ShapeFuns
-    size(): number of elements
-    ndofs(): number of all dofs
-    int_phi_phi(c=None,derivative=[False,False]):
-        integral(c*phi*phi) or
-        integral(c*dphi*phi) or
-        integral(c*dphi*dphi) or
-        integral(c*phi*dphi)
-    int_phi(f=None,derivative=False):
-        integral(f*phi) or
-        integral(f*dphi)
-
+    FunctionSpace(mesh, sfns): constructor, sfns is shape functions
     """
 
     def __init__(self, mesh, sfns, e, nu, imp_1=None, imp_2=None):
@@ -488,13 +469,22 @@ class FunctionSpace(object):
         return self.__nDOFs
 
     def strain_disp_matrix(self, eltno):
+        """
+        Assemble strain-displacement matrix
+        Nl: shape functions of the current element
+        dNl: derivatives of the shape functions of the current element
+        B: strain-displacement matrix
+        """
         B = np.zeros((3, 2))
         for i in range(3):
+            # access shape functions derivatives
             dNl = self.__elts[eltno].derivative(i)
+            # transfer shape functions from local to global coordinates
             dN = np.dot(self.__elts[eltno].jacobi(inv=True), dNl)
             Bi = np.array([[dN[0], 0],
                            [0, dN[1]],
                            [dN[1], dN[0]]])
+            # assemble strain-displacement matrix
             B = np.append(B, Bi, axis=1)
         B = np.delete(B, [0, 1], axis=1)
         return B
@@ -502,7 +492,14 @@ class FunctionSpace(object):
     def stiff_matrix(self, th=1):
         """
         assemble stiffness matrix
-        :return:
+        nDofs: total number of degrees of freedom
+        D: elasticity tenzor
+        B: strain-displacement matrix
+        ind: indexes of the degrees of freedom of the current element
+        area: area of the current element
+        ke: current element stiffness matrix
+        ixgrid: indexes of the dofs of the current element stiffness matrix in the global stiffness matrix
+        k: global stiffness matrix
         """
         nDofs = self.__nDOFs
         k = np.zeros((nDofs, nDofs))
@@ -510,16 +507,16 @@ class FunctionSpace(object):
             D = elt.el_tenz()
             B = self.strain_disp_matrix(elt.eltno())
             ind = elt.dofnos()
-            area = elt.area()
+            area = abs(elt.area())
             ke = th * area * np.dot(B.transpose(), (np.dot(D, B)))
             ixgrid = np.ix_(ind, ind)
             k[ixgrid] += ke
         return k
 
-    def load_vector(self, rho, temp, g, depth, sign=None, i=None, period=None, pressure=None, boundary=None, th=1):
+    def load_vector(self, rho, temp, g, depth, pressure=None, boundary=None, sign=None, i=None, period=None, th=1):
         """
         assemble load vector
-        :return:
+        x,y: nodal coordinates
         """
         x, y = self.__mesh.coordinates()
         p = rho * g  # lithostatic pressure
@@ -529,10 +526,14 @@ class FunctionSpace(object):
                 sign = -sign
 
         if boundary == 'cavern':
+            # d - vector of lengths between nodes on the cavern's wall
             d, alpha = self.nodal_forces()
+            # indexes of the nodes of the cavern(s)
             nind_c, nind_c1, nind_c2 = self.cavern_nodes_ind()
+            # depths of the roof of the cavern(s)
             d_cav_top = depth + np.max(y) - np.max(y[nind_c])
             d_cav_bot = depth + np.max(y) - np.min(y[nind_c])
+            # minimum and maximum allowable cavern pressures
             pc_min = 0.2 * p * d_cav_bot  # minimum allowable cavern pressure, [Pa]
             pc_max = 0.8 * p * d_cav_top  # maximum allowable cavern pressure, [Pa]
 
@@ -546,24 +547,58 @@ class FunctionSpace(object):
             elif sign == -1:
                 pc == pc_min
 
-        rho_h2 = PropsSI('D', 'T', temp, 'P', pc, 'hydrogen')
-        f = np.zeros((2 * self.__nnodes, 1))
+            # hydrogen density calculated using the coolprop library
+            rho_h2 = PropsSI('D', 'T', temp, 'P', pc, 'hydrogen')
 
-        for elt in self.__elts:
-            node = elt.nodes()
-            ind = elt.dofnos()
-            fe = np.zeros(6)
+            # initialize the forces vector
+            f = np.zeros((2 * self.__nnodes, 1))
+            # assemble the forces vector
+            for elt in self.__elts:
+                node = elt.nodes()
+                ind = elt.dofnos()
+                fe = np.zeros(6)
 
-            for i in range(3):
-                # Applying lithostatic Newman's B.C. on top and right edges
-                if boundary == 'cavern':
+                for i in range(3):
+                    # Applying lithostatic Newman's B.C. on top and right edges
                     if node[i] in nind_c:
-                        dp = (pc + rho_h2 * g * (max(y[nind_c] - y[node[i]])) - p * (depth + max(y) - y[node[i]])) * \
-                             d[np.where(nind_c == node[i])] * th
+                        dp = (pc + rho_h2 * g * (np.max(y[nind_c] - y[node[i]])) - p * (
+                                depth + np.max(y) - y[node[i]])) * d[np.where(nind_c == node[i])] * th
+                        # dp = (pc + rho_h2 * g * (max(y[nind_c] - y[node[i]]))) * d[np.where(nind_c == node[i])] * th
                         fe[2 * i] += dp * np.cos(alpha[np.where(nind_c == node[i])])
                         fe[2 * i + 1] += dp * np.sin(alpha[np.where(nind_c == node[i])])
 
-            f[ind] = fe.reshape((6, 1))
+                f[ind] = fe.reshape((6, 1))
+
+        elif boundary == 'right':
+            f = np.zeros((2 * self.__nnodes, 1))
+
+            for elt in self.__elts:
+                node = elt.nodes()
+                ind = elt.dofnos()
+                fe = np.zeros(6)
+
+                for i in range(3):
+                    if x[node[i]] == np.max(x) and abs(y[node[i]]) != np.max(y) and abs(y[node[i]]) != np.min(y):
+                        fe[2 * i] += -rho * g * (depth + np.max(y) - y[node[i]]) * abs(np.max(y) - np.min(y)) / 15
+                    elif x[node[i]] == np.max(x) and (y[node[i]] == np.max(y) or y[node[i]] == np.min(y)):
+                        fe[2 * i] += -1 / 2 * rho * g * (depth + np.max(y) - y[node[i]]) * abs(
+                            np.max(y) - np.min(y)) / 15
+                f[ind] = fe.reshape((6, 1))
+
+        elif boundary == 'top':
+            f = np.zeros((2 * self.__nnodes, 1))
+
+            for elt in self.__elts:
+                node = elt.nodes()
+                ind = elt.dofnos()
+                fe = np.zeros(6)
+
+                for i in range(3):
+                    if y[node[i]] == np.max(y) and abs(x[node[i]]) != np.max(x) and abs(x[node[i]]) != np.min(x):
+                        fe[2 * i + 1] += -2 * rho * g * depth * abs(np.max(x) - np.min(x)) / 15
+                    elif y[node[i]] == np.max(y) and (x[node[i]] == np.max(x) or x[node[i]] == np.min(x)):
+                        fe[2 * i + 1] += -1 / 2 * 2 * rho * g * depth * abs(np.max(x) - np.min(x)) / 15
+                f[ind] = fe.reshape((6, 1))
 
         return f, sign
 
@@ -574,12 +609,18 @@ class FunctionSpace(object):
         """
 
         def deviatoric_stress():
+            """
+            calculate deviatoric stress
+            """
             dstressx = stress[0] - 0.5 * (stress[0] + stress[1])
             dstressy = stress[1] - 0.5 * (stress[0] + stress[1])
 
             return np.array([dstressx, dstressy, stress[2]])
 
         def assemble_creep_forces_vector():
+            """
+            assemble the global fictitious creep forces vector
+            """
             fcr = np.zeros((self.__nDOFs, 1))
 
             for elt in self.__elts:
@@ -611,22 +652,29 @@ class FunctionSpace(object):
 
     def gauss_strain(self, u):
         """
-        Element wise calculated strain.
+        Element wise calculated Gauss strain.
         """
 
         strain = np.zeros((3, self.__nele))
         for elt in self.__elts:
+            # create an array of nodes indexes of the current element
             node = elt.nodes()
+            # assemble strain-displacement matrix for the current element
             B = self.strain_disp_matrix(elt.eltno())
-            q = np.array([u[node[0] * 2], u[node[0] * 2 + 1],
-                          u[node[1] * 2], u[node[1] * 2 + 1],
-                          u[node[2] * 2], u[node[2] * 2 + 1], ])
-            strain[:, [elt.eltno()]] = np.dot(B, q)
+            # access nodal displacement values of the current element
+            q = np.array([u[node[0] * 2],
+                          u[node[0] * 2 + 1],
+                          u[node[1] * 2],
+                          u[node[1] * 2 + 1],
+                          u[node[2] * 2],
+                          u[node[2] * 2 + 1]])
+            # calculate strain at gaussian point within a given CST element
+            strain[:, [elt.eltno()]] = -np.dot(B, q)
 
         return strain
 
     def nodal_extrapolation(self, variable_g):
-        """Stress and strains extrapolated to nodal points."""
+        """Stress and strains extrapolated from Gauss to nodal points."""
 
         variable = np.zeros((3, self.__nnodes))
 
@@ -647,6 +695,9 @@ class FunctionSpace(object):
         return variable
 
     def gauss_stress(self, straing):
+        """
+        Element wise calculated Gauss stresses.
+        """
 
         stressg = np.zeros((3, self.__nele))
         for elt in self.__elts:
@@ -698,7 +749,7 @@ class FunctionSpace(object):
             seen = set([i])
             neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
 
-            if x[i] < max(x) and x[i] > min(x):
+            if x[i] < np.max(x) and x[i] > np.min(x):
                 alpha1 = np.arctan((x[neighbours[0]] - x[i]) / (y[i] - y[neighbours[0]]))
                 alpha2 = np.arctan((x[i] - x[neighbours[1]]) / (y[neighbours[1]] - y[i]))
                 d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
@@ -709,7 +760,7 @@ class FunctionSpace(object):
                 elif i in nind_c2:
                     alpha = np.append(alpha, -np.pi + ((alpha1 + alpha2) / 2))
 
-            elif x[i] == max(x) or x[i] == min(x):
+            elif x[i] == np.max(x) or x[i] == np.min(x):
                 if y[i] > 0:
                     alpha = np.append(alpha, np.pi / 2)
                     d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
@@ -720,78 +771,6 @@ class FunctionSpace(object):
                     d = np.append(d, d1)
 
         return d, alpha
-
-    # def litho_forces_interface(self):
-    #     """
-    #     Evaluate x and y component of nodal forces on the cavern's wall
-    #     :return:
-    #     """
-    #     t_bnd, r_bnd = self.__mesh.litho_bnd()
-    #     node_ind = self.__mesh.edges()
-    #     x, y = self.__mesh.coordinates()
-    #     dt = np.array([])
-    #     dr = np.array([])
-    #
-    #     for i in t_bnd:
-    #         index = np.where((node_ind == i))[0]
-    #         nindex = node_ind[index].flatten()
-    #         seen = set([i])
-    #         neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
-    #
-    #         if abs(x[i]) < max(x):
-    #             d1 = abs(x[i] - x[neighbours[0]])
-    #             d2 = abs(x[i] - x[neighbours[1]])
-    #             dt = np.append(dt, (d1 + d2) / 2)
-    #
-    #         elif abs(x[i]) == max(x):
-    #             d1 = abs(x[i] - x[neighbours[0]])
-    #             dt = np.append(dt, d1 / 2)
-    #
-    #     for j in r_bnd:
-    #         index = np.where((node_ind == j))[0]
-    #         nindex = node_ind[index].flatten()
-    #         seen = set([j])
-    #         neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
-    #
-    #         if abs(y[j]) < max(y):
-    #             d1 = abs(y[j] - y[neighbours[0]])
-    #             d2 = abs(y[j] - y[neighbours[1]])
-    #             dr = np.append(dr, (d1 + d2) / 2)
-    #
-    #         elif abs(y[j]) == max(y):
-    #             if y[j] == y[neighbours[0]]:
-    #                 d1 = abs(y[j] - y[neighbours[1]])
-    #             else:
-    #                 d1 = abs(y[j] - y[neighbours[0]])
-    #             dr = np.append(dr, d1 / 2)
-    #
-    #     # px = -p * dr * w
-    #     # py = -p * dt * w
-    #
-    #     return dr, dt
-
-    # def dfcr_du(self, decr, de, ds, th=1):
-    #     dF_du = np.zeros((self.__nDOFs, self.__nDOFs))
-    #
-    #     for elt in self.__elts:
-    #         area = elt.area()
-    #         ind = elt.dofnos()
-    #         B = self.strain_disp_matrix(elt.eltno())
-    #         D = elt.el_tenz()
-    #         Kte = th * area * np.dot(np.transpose(B), D)
-    #         decr = np.array([
-    #             [de[0, elt.eltno()] / ds[0, elt.eltno()], de[0, elt.eltno()] / ds[1, elt.eltno()],
-    #              de[0, elt.eltno()] / ds[2, elt.eltno()]],
-    #             [de[1, elt.eltno()] / ds[0, elt.eltno()], de[1, elt.eltno()] / ds[1, elt.eltno()],
-    #              de[1, elt.eltno()] / ds[2, elt.eltno()]],
-    #             [de[2, elt.eltno()] / ds[0, elt.eltno()], de[2, elt.eltno()] / ds[1, elt.eltno()],
-    #              de[2, elt.eltno()] / ds[2, elt.eltno()]]])
-    #         # decr = decr.transpose()
-    #         dfcre = np.dot(Kte, np.dot(decr, np.dot(D, B)))
-    #         ixgrid = np.ix_(ind, ind)
-    #         dF_du[ixgrid] += dfcre
-    #
-    #     return dF_du
 
 
 class anl(object):
@@ -840,3 +819,16 @@ class anl(object):
         f = f.reshape((2 * mesh.nnodes(), 1))
 
         return f
+
+
+class Logger(object):
+    def __init__(self, filename="Default.log"):
+        self.terminal = sys.stdout
+        self.log = open(filename, "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        pass
