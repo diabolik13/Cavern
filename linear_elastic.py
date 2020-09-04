@@ -42,9 +42,10 @@ def extract_bnd(p, dof):
     b_bnd = np.array([], dtype='i')
     t_bnd = np.array([], dtype='i')
 
+    # Normal case:
     for node in range(nnodes):
         if p[0][node] == min(p[0]):
-            l_bnd = np.append(l_bnd, node * dof)
+            # l_bnd = np.append(l_bnd, node * dof)
             l_bnd = np.append(l_bnd, node * dof + 1)        # added rule
         if p[1][node] == min(p[1]):
             b_bnd = np.append(b_bnd, node * dof)            # added rule
@@ -83,32 +84,64 @@ def cavern_boundaries(m, p, pr, w):
     x = p[0, :]  # x-coordinates of nodes
     y = p[1, :]  # y-coordinates of nodes
     ph_group = m.cell_data['line']['gmsh:physical']  # physical group of a line
-    lines = m.cells['line']  # nodes of the boundary lines
+    pg = np.unique(ph_group)
+    pg = pg[pg < 2]     # for new cave.msh (2)
+    # pg = pg[pg < 13]    # cavern(s) index is represented by physical group 11 (and 12 in case of 2 caverns)
+    lines = m.cells['line']  # nodes of the boundary lines      (is node_ind)
     # new_array = np.concatenate((ph_group.reshape(len(ph_group), 1), lines), axis=1)
-    nind_c = np.array([], dtype='i')  # cavern nodes indexes
+    nind_c1 = np.array([], dtype='i')  # cavern nodes indexes
+    nind_c2 = np.array([], dtype='i')   # 2 cavern nodes indexes
 
     for i in range(len(lines)):
-        if ph_group[i] == 1:
-            nind_c = np.append(nind_c, lines[i, :])
+        if len(pg) == 2:
+            if ph_group[i] == pg[0]:    # 1st Cavern's wall nodes group
+                nind_c1 = np.append(nind_c1, lines[i, :])
+            if ph_group[i] == pg[1]:    # 2nd Cavern's wall nodes group
+                nind_c2 = np.append(nind_c2, lines[i, :])
+        elif len(pg) == 1:  # only 1 cavern present in the mesh
+            if ph_group[i] == pg[0]:
+                nind_c1 = np.append(nind_c1, lines[i, :])
 
-    nind_c = np.unique(nind_c)
+    nind_c1 = np.unique(nind_c1)
+    nind_c2 = np.unique(nind_c2)
+    nind_c = np.concatenate((nind_c1, nind_c2), axis=0)
+
     alpha = np.array([])
     d = np.array([])
 
+    # copy from here:
     for i in nind_c:
         index = np.where((lines == i))[0]
         nindex = lines[index].flatten()
         seen = set([i])
         neighbours = [x for x in nindex if x not in seen and not seen.add(x)]
-        if x[i] > min(p[0]):
-            alpha1 = np.arctan((x[neighbours[0]] - x[i]) / (y[i] - y[neighbours[0]]))
-            alpha2 = np.arctan((x[i] - x[neighbours[1]]) / (y[neighbours[1]] - y[i]))
+
+        if x[i] < max(x) and x[i] > min(x):
+            tested = x[neighbours[0]] - x[i]
+            tested1 = y[i] - y[neighbours[0]]
+            tested2 = x[i] - x[neighbours[1]]
+            tested3 = y[neighbours[1]] - y[i]
+            if tested == 0:
+                tested = 1e-5
+            if tested1 == 0:
+                tested1 = 1e-5
+            if tested2 == 0:
+                tested2 = 1e-5
+            if tested3 == 0:
+                tested3 = 1e-5
+            # alpha1 = np.arctan((x[neighbours[0]] - x[i]) / (y[i] - y[neighbours[0]])) # o.g.
+            alpha1 = np.arctan(tested / tested1)    # TODO make this look more dandy
+        #     alpha2 = np.arctan((x[i] - x[neighbours[1]]) / (y[neighbours[1]] - y[i])) # o.g.
+            alpha2 = np.arctan(tested2 / tested3)
             d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
             d2 = np.sqrt((x[i] - x[neighbours[1]]) ** 2 + (y[i] - y[neighbours[1]]) ** 2)
             d = np.append(d, (d1 + d2) / 2)
-            alpha = np.append(alpha, ((alpha1 + alpha2) / 2))
+            if i in nind_c1:
+                alpha = np.append(alpha, ((alpha1 + alpha2) / 2))
+            elif i in nind_c2:
+                alpha = np.append(alpha, -np.pi + ((alpha1 + alpha2) / 2))
 
-        elif x[i] == min(p[0]):
+        elif x[i] == max(x) or x[i] == min(x):
             if y[i] > 0:
                 alpha = np.append(alpha, np.pi / 2)
                 d1 = np.sqrt((x[i] - x[neighbours[0]]) ** 2 + (y[i] - y[neighbours[0]]) ** 2)
@@ -157,7 +190,6 @@ def generate_displacement_strain_matrix(el):
     b = 1 / np.linalg.det(j) * np.array([[yc[1, 2], 0, yc[2, 0], 0, yc[0, 1], 0],
                                          [0, xc[2, 1], 0, xc[0, 2], 0, xc[1, 0]],
                                          [xc[2, 1], yc[1, 2], xc[0, 2], yc[2, 0], xc[1, 0], yc[0, 1]]])
-
     return b
 
 
@@ -197,12 +229,12 @@ def check_singularity(a):
     return np.linalg.inv(a)
 
 
-def assemble_vector(p, t, nind_c, px=0, py=0):
+def assemble_vector(p, t, rho, g, nind_c, px=0, py=0):
     nnodes = p.shape[1]  # number of nodes
     nele = len(t[0])  # number of elements
     f = np.zeros((2 * nnodes, 1))
-    pressurex = 8e6  # predefined value
-    pressurey = pressurex  # on both sides of the rectangle similar pressure values
+    pressurex = 5e6  # predefined value (o.g. 5e6) 10e6
+    pressurey = pressurex  # on both sides of the rectangle similar pressure values (original case, Khaledi 10e6)
     # test = np.where(t == 4)  # find the appropriate element
 
     for k in range(nele):
@@ -247,9 +279,10 @@ def assemble_vector(p, t, nind_c, px=0, py=0):
             # n = n + 2
             # j = j + 2
 
+            # Normal Case:
             # Applying Newman's B.C. on the cavern's wall (Pressure inside the cavern, cavern mesh)
             if node[i] in nind_c:
-               fe[2 * i] = px[np.where(nind_c == node[i])]
+               fe[2 * i] = px[np.where(nind_c == node[i])] # + rho * g * (y[i] - 1000)    # remove rho * g if without litho pressure
                fe[2 * i + 1] = py[np.where(nind_c == node[i])]
 
         for i in range(6):
@@ -282,7 +315,7 @@ def gauss_stress_strain(p, t, u, d):
         q = np.array([u[node[0] * 2], u[node[0] * 2 + 1],
                       u[node[1] * 2], u[node[1] * 2 + 1],
                       u[node[2] * 2], u[node[2] * 2 + 1], ])
-        strain[:, [k]] = np.dot(b, q)
+        strain[:, [k]] = -np.dot(b, q)
         stress[:, [k]] = np.dot(d, strain[:, [k]])
 
     return strain, stress
@@ -477,7 +510,7 @@ def gauss_stress_strain_tot(p, t, u, d, evp_tot):
         q = np.array([u[node[0] * 2], u[node[0] * 2 + 1],
                       u[node[1] * 2], u[node[1] * 2 + 1],
                       u[node[2] * 2], u[node[2] * 2 + 1], ])
-        strain[:, [k]] = np.dot(b, q)
+        strain[:, [k]] = -np.dot(b, q)
         strain[:, [k]] = strain[:, [k]] + evp_tot[:, [k]]
         stress[:, [k]] = np.dot(d, strain[:, [k]])
 
