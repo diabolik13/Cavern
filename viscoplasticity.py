@@ -102,7 +102,8 @@ def first_stress_inv(stress_mpa, sigma_t):
             I1[i] = (-stress_mpa[0, i] + stress_mpa[1, i]) + sigma_t
         if stress_mpa[0, i] > 0 and stress_mpa[1, i] < 0:
             I1[i] = (stress_mpa[0, i] - stress_mpa[1, i]) + sigma_t
-    I1_check = np.where(I1 < 0)
+    # I1_check = np.where(I1 < 0)
+
     return I1
 
 
@@ -112,13 +113,13 @@ def second_stress_inv(stress_mpa):
 
 
 def second_dev_stress_inv(I1, I2):
-    J2 = (1 / 3) * np.power(I1, 2) - I2
+    J2 = (1 / 3) * np.power(I1, 2) - I2     # o.g.
     J2_check = np.where(J2 < 0)
     return J2
 
 
 def third_dev_stress_inv(I1, I2):
-    J3 = (2 / 27) * np.power(I1, 3) - (1 / 3) * I1 * I2
+    J3 = (2 / 27) * np.power(I1, 3) - (1 / 3) * I1 * I2     # o.g.
     return J3
 
 
@@ -127,16 +128,19 @@ def lode_angle(stress_mpa, J2, J3):
 
     for j in range(len(stress_mpa[0])):
         if stress_mpa[0, j] > 0 and stress_mpa[1, j] > 0:
-            bracket[j] = (np.sqrt(27) * J3[j]) / (2 * np.power(J2[j], 1.5))
+            bracket[j] = (-np.sqrt(27) * J3[j]) / (2 * np.power(J2[j], 1.5))
         if stress_mpa[0, j] < 0 and stress_mpa[1, j] < 0:
-            bracket[j] = (-np.sqrt(27) * J3[j]) / (2 * np.power(J2[j], 1.5))
-        if stress_mpa[0, j] < 0 and stress_mpa[1, j] > 0:
-            bracket[j] = (-np.sqrt(27) * J3[j]) / (2 * np.power(J2[j], 1.5))
-        if stress_mpa[0, j] > 0 and stress_mpa[1, j] < 0:
             bracket[j] = (np.sqrt(27) * J3[j]) / (2 * np.power(J2[j], 1.5))
+        if stress_mpa[0, j] < 0 and stress_mpa[1, j] > 0:
+            bracket[j] = (np.sqrt(27) * J3[j]) / (2 * np.power(J2[j], 1.5))
+        if stress_mpa[0, j] > 0 and stress_mpa[1, j] < 0:
+            bracket[j] = (np.sqrt(27) * J3[j]) / (2 * np.power(J2[j], 1.5))     # changed this one as last
 
     invalid_low = np.where(bracket < -1)
     invalid_high = np.where(bracket > 1)
+    bracket[bracket < -1] = -1
+    bracket[bracket > 1] = 1
+
     theta = (1 / 3) * np.arccos(bracket)
     theta_degrees = theta * (180 / np.pi)  # from 0-30: extension, 30-60: compression
     return theta, theta_degrees
@@ -175,17 +179,23 @@ def hardening_param(t, straing, Fvp, alpha_1, eta, alpha_0, kv, associate):
     return alpha, alpha_q
 
 
-def yield_function(I1, J2, alpha, theta, beta_1, beta, mv, n, gamma, F0):
-    Fs = np.power(np.exp(beta_1 * I1) - beta * np.cos(3 * theta), mv)       # og
-    Fb = (-alpha * np.power(I1, n) + gamma * np.power(I1, 2))
-    Fvp = (J2 - Fb * Fs)/100
+def yield_function(I1, J2, alpha, theta, beta_1, beta, mv, n, gamma, F0, pa):
+    Fs = np.power(np.exp(beta_1 * I1) - beta * np.cos(3 * theta), mv)       # o.g.
+    # Fs = np.power(np.exp(beta_1 * I1) - beta * 1, mv)       # to check if I need another statement for flat cavern part!
+    # Fb = (-alpha * np.power(I1, n) + gamma * np.power(I1, 2))       # o.g.
+    Fb = -alpha * np.power((I1 / pa), n) + gamma * np.power((I1 / pa), 2)  # new non dimensionality form
+    # Fvp = (J2 - Fb * Fs)/F0     # o.g.
+    Fvp = (J2 / np.power(pa, 2)) - Fb * Fs  # new non dimensionality form
+    Fvp[Fvp > 0] = 1
     return Fvp
 
 
-def potential_function(I1, J2, alpha_q, theta, beta_1, beta, mv, n, gamma):
+def potential_function(I1, J2, alpha_q, theta, beta_1, beta, mv, n, gamma, pa):
     Qs = np.power(np.exp(beta_1 * I1) - beta * np.cos(3 * theta), mv)
-    Qb = (-alpha_q * np.power(I1, n) + gamma * np.power(I1, 2))
-    Qvp = J2 - Qb * Qs
+    Qb = -alpha_q * np.power((I1 / pa), n) + gamma * np.power((I1 / pa), 2)     # new non dimensionality form
+    # Qb = (-alpha_q * np.power(I1, n) + gamma * np.power(I1, 2))     # o.g.
+    # Qvp = J2 - Qb * Qs      # o.g.
+    Qvp = (J2 / np.power(pa, 2)) - Qb * Qs      # new non dimensionality form
     return Qvp
 
 
@@ -209,17 +219,20 @@ def stress_inv_der(stressxx, stressyy, stressxy, sigma_t):
     return dI1dxx, dJ2dxx, dJ3dxx, dI1dyy, dJ2dyy, dJ3dyy, dI1dxy, dJ2dxy, dJ3dxy
 
 
-def pot_der(alpha_q, beta_1, beta, mv, n, gamma, I1, J2, J3):
+def pot_der(alpha_q, beta_1, beta, mv, n, gamma, I1, J2, J3, pa):
     I1a, J2a, J3a = sp.symbols('I1 J2 J3')
     alpha_qa = sp.symbols('alpha_q')
 
-    bracket = (-np.sqrt(27) * J3a) / (2 * np.power(J2a, 1.5))
+    bracket = (-np.sqrt(27) * J3a) / (2 * np.power(J2a, 1.5))           # is this right?
     theta = (1 / 3) * sp.acos(bracket)
 
     Qs = np.power(sp.exp(beta_1 * I1a) - beta * sp.cos(3 * theta), mv)
-    # Qs = np.power(sp.exp(beta_1 * I1a) + beta * sp.cos(3 * theta), mv)        # o.g.
-    Qb = (-alpha_qa * np.power(I1a, n) + gamma * np.power(I1a, 2))
-    Qvp = J2a - Qb * Qs
+    # Qs = np.power(sp.exp(beta_1 * I1a) + beta * sp.cos(3 * theta), mv)        # not o.g. anymore can get rid of it!
+    # Qb = (-alpha_qa * np.power(I1a, n) + gamma * np.power(I1a, 2))      # o.g.
+    Qb = -alpha_qa * np.power((I1a / pa), n) + gamma * np.power((I1a / pa), 2)  # new non dimensionality form
+    # Qvp = J2a - Qb * Qs         # o.g.
+    Qvp = (J2a / np.power(pa, 2)) - Qb * Qs  # new non dimensionality form
+
 
     # dQvpdI1 = sp.lambdify([I1a, J2a, J3a], sp.diff(Qvp, I1a), 'numpy')(I1, J2, J3)        # o.g.
     dQvpdI1 = sp.lambdify([I1a, J2a, J3a, alpha_qa], sp.diff(Qvp, I1a), 'numpy')(I1, J2, J3, alpha_q)
@@ -245,6 +258,8 @@ def viscoplastic_strain(t, Fvp, dQvpdxx, dQvpdyy, dQvpdxy, mu1, N1, F0):
         else:
             evp[:, i] = 0
     return evp
+
+
 
 
 
