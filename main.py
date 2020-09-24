@@ -40,6 +40,9 @@ scale = 2e2  # scale the domain from -1...1 to -X...X, where X - is the scale
 sign = 1  # used for cyclic load
 imp_1 = None
 imp_2 = None
+et = [0]  # elapsed time
+filename = 'new_cave2.msh'
+mesh = Mesh('./mesh/' + filename, scale, scale)
 
 if impurities == True:
     ym = [7e8, 24e9, 44e9]  # Young's modulus, [Pa] for 3 different domain zones (rock salt, potash lens, shale layer)
@@ -47,16 +50,6 @@ if impurities == True:
 else:
     ym = 44e9  # Young's modulus, [Pa] for homogeneous case
     nu = 0.3  # Poisson ratio, [-] for homogeneous case
-
-# K = 24.3e9
-# ym = 3 * K * (1 - 2 * nu)
-# G = 11.2e9
-# G = G - 0.5 * G
-# nu = (3 * K - 2 * G) / (2 * (3 * K + G))
-
-et = [0]  # elapsed time
-filename = 'new_cave2.msh'
-mesh = Mesh('./mesh/' + filename, scale, scale)
 
 # modeling heterogeneity
 if impurities == True:
@@ -72,6 +65,7 @@ if impurities == True:
         imp_1[elt] = np.mean(imp2[nodes])
         imp_2[elt] = np.mean(imp3[nodes])
 
+# define shape functions, stiffness matrix, load vector and boundary conditions
 sfns = Shapefns()
 V = FunctionSpace(mesh, sfns, ym, nu, imp_1, imp_2)
 k = V.stiff_matrix()
