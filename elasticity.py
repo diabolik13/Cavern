@@ -103,7 +103,7 @@ def showMeshPlot(nodes, elements, values):
     plt.show()
 
 
-def save_plot_A(nt, mesh, output, folder, node):
+def save_plot_A(nt, mesh, output, folder, node, ext):
     """
     Saves results for one particular point.
     """
@@ -205,8 +205,8 @@ def save_plot_A(nt, mesh, output, folder, node):
             z = var[j]['value']
 
             # fig, ax = plt.subplots(constrained_layout=True)
-            # fig.tight_layout()
             fig = plt.figure(figsize=(8, 6))
+            # fig.tight_layout()
             ax = fig.add_axes([0.15, 0.1, 0.8, 0.8])
             ax.cla()
             plt.cla()
@@ -229,7 +229,7 @@ def save_plot_A(nt, mesh, output, folder, node):
             plt.yticks(fontsize=18)
             plt.xlim(0, np.max(output['elapsed time'] / 86400))
 
-            plt.savefig(folder + label + '_vs_disp.eps', format='eps')
+            plt.savefig(folder + label + '_vs_disp.' + ext, bbox_inches='tight', dpi=100, format=ext)
             # plt.show()
             plt.close(fig)
 

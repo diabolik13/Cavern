@@ -10,31 +10,33 @@ from tqdm import tqdm
 sys.stdout = Logger("log.txt")
 time_start = time.time()
 
+# physics
 NR = False
 arrhenius = True
 damage = False
 cyclic = False
 impurities = False
 principal_stress = False
+
+# input parameters
 pressure = 'min'  # switch between minumum 'min' and maximum 'max' pressure of the cavern
 boundary = 'cavern'  # whenere to apply Neumann bc ('cavern', 'right', 'top')
-
 cfl = 0.8
 g = 9.81  # gravity constant, [m/s^2]
 rho = 2250  # average rock salt, [kg/m3]
 depth = 600  # depth from the surface to the salt rock top interface, [m]
 a = 8.1e-28  # creep material constant, [Pa^n]
-bo = 1e-29  # material parameter
+bo = 7e-22  # material parameter
 n = 3.5  # creep material constant, [-]
-l = 4.5  # material parameter
-kk = 4  # material parameter
+l = 2.5  # material parameter
+kk = 3  # material parameter
 temp = 298  # temperature, [K]
 q = 51600  # creep activation energy, [J/mol]
 r = 8.314  # gas constant, [J/mol/K]
 th = 1  # thickness of the domain, [m]
-nt = 25  # number of time steps, [-]
+nt = 15  # number of time steps, [-]
 dt = 1e6  # time step size, [s]
-scale = 3e2  # scale the domain from -1...1 to -X...X, where X - is the scale
+scale = 2e2  # scale the domain from -1...1 to -X...X, where X - is the scale
 sign = 1  # used for cyclic load
 imp_1 = None
 imp_2 = None
@@ -75,7 +77,7 @@ V = FunctionSpace(mesh, sfns, ym, nu, imp_1, imp_2)
 k = V.stiff_matrix()
 fo, _ = V.load_vector(rho, temp, g, depth, pressure, 'cavern')
 d_bnd = mesh.extract_bnd(lx=True, ly=False,
-                         rx=False, ry=False,
+                         rx=True, ry=False,
                          bx=False, by=True,
                          tx=False, ty=False)
 k, fo = impose_dirichlet(k, fo, d_bnd)
@@ -159,19 +161,26 @@ if not NR:
             if cyclic:
                 fo, sign = V.load_vector(rho, temp, g, depth, pressure, boundary, sign, i, 3)
             if damage:
-                omega = b * (von_mises_stress(stressg).transpose()) ** n / (((1 - omega) * dt) ** l)
-                s_I = 1 / 2 * (stressg[0] - stressg[1]) + 1 / 2 * np.sqrt(
-                    (stressg[0] - stressg[1]) ** 2 + 4 * (stressg[2]) ** 2)
-                svmg = von_mises_stress(stressg).transpose()
-                sw_eq = 1 / 2 * (s_I + svmg)
+                # omega = b * (von_mises_stress(stressg).transpose()) ** kk / (((1 - omega) * dt) ** l)
+                omega = b * (von_mises_stress(stressg).transpose()) ** kk / ((1 - omega) ** l) * dt
+                test = 1
+                # s_I = 1 / 2 * (stressg[0] - stressg[1]) + 1 / 2 * np.sqrt(
+                #     (stressg[0] - stressg[1]) ** 2 + 4 * (stressg[2]) ** 2)
+                # svmg = von_mises_stress(stressg).transpose()
+                # sw_eq = 1 / 2 * (s_I + svmg)
+                # sw_eq = svmg
 
             if damage:
                 f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg, strain_crg, arrhenius, omega)
             else:
-                f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg, strain_crg, arrhenius)
+                if sign > 0:
+                    f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg1, strain_crg, arrhenius)
+                else:
+                    f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg2, strain_crg, arrhenius)
 
+            # f_cr = -f_cr
             strain_cr = V.nodal_extrapolation(strain_crg)
-            f = fo - f_cr
+            f = fo + f_cr
             f[d_bnd] = 0
             u = solve_disp(k, f)
 
@@ -180,7 +189,7 @@ if not NR:
             strain = V.nodal_extrapolation(straing)
 
             if cyclic:
-                if sign < 0:
+                if sign > 0:
                     stress = stress2
                     stressg = stressg2
                 else:
@@ -196,6 +205,7 @@ if not NR:
                                                    f_cr[1::2].reshape(mesh.nnodes(), )), axis=0)
             svm_out[:, i + 1] = von_mises_stress(stress).transpose()
             strain_cr_out[:, i + 1] = np.concatenate((strain_cr[0], strain_cr[1], strain_cr[2]), axis=0)
+
             if principal_stress == True:
                 p_stress_out1 = (1 / 2 * (stress[0] + stress[1]) + np.sqrt(
                     (1 / 2 * (stress[0] - stress[1])) ** 2 + stress[2] ** 2)).transpose()
@@ -288,9 +298,10 @@ print("Total simulation time is {} days.\n Maximum elastic displacement is {} m,
     float("{0:.1e}".format(np.max(abs(output['displacement'][:, -1] - output['displacement'][:, 0]))))))
 
 # save 2D results
-# write_results(nt, mesh, output, filename.split(".")[0], '.eps', amp=True)
+write_results(nt, mesh, output, filename.split(".")[0], '.eps', amp=False)
 # write_results(nt, mesh, output, filename.split(".")[0], '.xdmf')
 # save parameters in point A evolution in time
-save_plot_A(nt, mesh, output, filename.split(".")[0], 700)
+# index = np.where(output['displacement'] == np.amax(output['displacement']))[0]
+save_plot_A(nt, mesh, output, filename.split(".")[0], 85, 'eps')
 # write results to xls file
 # write_xls(filename, output)

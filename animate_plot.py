@@ -127,6 +127,7 @@ def write_results(nt, mesh, output, folder, ext1, amp=False, l=10):
         ext = ext1
         if nt < 2:
             del data[4]
+
         Path('./output/' + folder).mkdir(parents=True, exist_ok=True)
         for k in data.keys():
             var = data[k]
@@ -202,91 +203,53 @@ def write_results(nt, mesh, output, folder, ext1, amp=False, l=10):
         for k in data.keys():
             var = data[k]
             for j in range(len(var)):
-                for i in range(nt):
-                    label = var[j]['title']
-                    units = var[j]['units']
-                    z = var[j]['value']
+                # for i in range(nt):
+                i = nt - 1
+                label = var[j]['title']
+                units = var[j]['units']
+                z = var[j]['value']
 
-                    # fig, ax = plt.subplots()
-                    fig = plt.figure(figsize=(11, 9))
-                    ax = fig.add_axes([0.15, 0.15, 0.7, 0.7])
-                    # fig.tight_layout()
-                    divider = make_axes_locatable(ax)
-                    cax = divider.append_axes("right", size="5%", pad=0.05)
+                # fig, ax = plt.subplots()
+                fig = plt.figure(figsize=(11, 9))
+                ax = fig.add_axes([0.15, 0.15, 0.7, 0.7])
+                # fig.tight_layout()
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
 
-                    # def animate(i):
-                    #     ax.cla()
-                    #     plt.cla()
-                    #     # fig.tight_layout()
-                    #     ax.set_aspect('equal', 'box')
-                    #     ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
-                    #     if amp == True:
-                    #         xc = x + ex(i) * data[0][0]['value'][:, i]
-                    #         # yc = y + ex(i) * data[0][1]['value'][:, i]
-                    #         yc = y
-                    #     else:
-                    #         xc, yc = x, y
-                    #     triang = mtri.Triangulation(xc, yc, t.transpose())
-                    #     c = ax.tricontourf(triang, z[:, i], l, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
-                    #                        levels=np.linspace(np.min(z), np.max(z), l))
-                    #     ax.locator_params(axis='both', nbins=3)
-                    #     ax.tick_params(axis='both', which='major', labelsize=30)
-                    #     ax.tick_params(axis='both', which='minor', labelsize=16)
-                    #     ax.axes.xaxis.set_ticks([])
-                    #     ax.axes.yaxis.set_ticks([])
-                    #     ax.triplot(triang, color='white', lw=0.1)
-                    #     # ax.set_title(
-                    #     #     label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.\n',
-                    #     #     fontsize=30)
-                    #     ax.set_title(
-                    #         'elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.\n',
-                    #         fontsize=30)
-                    #     cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
-                    #     cbar.set_label(label + ' magnitude ' + units, fontsize=30)
-                    #     cbar.ax.tick_params(labelsize=30)
-                    #     # cbar.ax.ticklabel_format(useMathText=True)
-                    #     ax.set_xlabel('x', fontsize=30)
-                    #     ax.set_ylabel('z', fontsize=30)
-                    #     ax.ticklabel_format(useMathText=True)
-                    #
-                    # anim = FuncAnimation(
-                    #     fig, animate, interval=100, frames=nt)
-                    # anim.save('./output/' + folder + '/' + label + ext, writer='imagemagick')
-
-                    ax.cla()
-                    plt.cla()
-                    # fig.tight_layout()
-                    ax.set_aspect('equal', 'box')
-                    ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
-                    if amp == True:
-                        xc = x + ex(0) * data[0][0]['value'][:, i]
-                        # yc = y + ex(i) * data[0][1]['value'][:, i]
-                        yc = y
-                    else:
-                        xc, yc = x, y
-                    triang = mtri.Triangulation(xc, yc, t.transpose())
-                    c = ax.tricontourf(triang, z[:, i], l, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
-                                       levels=np.linspace(np.min(z), np.max(z), l))
-                    ax.locator_params(axis='both', nbins=3)
-                    ax.tick_params(axis='both', which='major', labelsize=30)
-                    ax.tick_params(axis='both', which='minor', labelsize=16)
-                    ax.axes.xaxis.set_ticks([])
-                    ax.axes.yaxis.set_ticks([])
-                    # ax.triplot(triang, color='white', lw=0.1)
-                    # ax.set_title(
-                    #     label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.\n',
-                    #     fontsize=30)
-                    # ax.set_title(
-                    #     'elapsed time ' + "{:10.2f}".format((output['elapsed time'][0] / 86400)) + ' days.\n',
-                    #     fontsize=30)
-                    cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
-                    cbar.set_label(label + units, fontsize=30)
-                    cbar.ax.tick_params(labelsize=30)
-                    # cbar.ax.ticklabel_format(useMathText=True)
-                    ax.set_xlabel('x', fontsize=30)
-                    ax.set_ylabel('z', fontsize=30)
-                    ax.ticklabel_format(useMathText=True)
-                    plt.savefig('./output/' + folder + '/' + label + str(i) + ext, format='eps')
+                ax.cla()
+                plt.cla()
+                # fig.tight_layout()
+                ax.set_aspect('equal', 'box')
+                ax.set(xlim=(min(x), max(x)), ylim=(min(y), max(y)))
+                if amp == True:
+                    xc = x + ex(0) * data[0][0]['value'][:, i]
+                    # yc = y + ex(i) * data[0][1]['value'][:, i]
+                    yc = y
+                else:
+                    xc, yc = x, y
+                triang = mtri.Triangulation(xc, yc, t.transpose())
+                c = ax.tricontourf(triang, z[:, i], l, cmap='plasma', vmin=np.min(z), vmax=np.max(z),
+                                   levels=np.linspace(np.min(z), np.max(z), l))
+                ax.locator_params(axis='both', nbins=3)
+                ax.tick_params(axis='both', which='major', labelsize=30)
+                ax.tick_params(axis='both', which='minor', labelsize=16)
+                ax.axes.xaxis.set_ticks([])
+                ax.axes.yaxis.set_ticks([])
+                # ax.triplot(triang, color='white', lw=0.1)
+                # ax.set_title(
+                #     label + ', elapsed time ' + "{:10.2f}".format((output['elapsed time'][i] / 86400)) + ' days.\n',
+                #     fontsize=30)
+                # ax.set_title(
+                #     'elapsed time ' + "{:10.2f}".format((output['elapsed time'][0] / 86400)) + ' days.\n',
+                #     fontsize=30)
+                cbar = plt.colorbar(c, cax=cax, format='%.0e', ticks=np.linspace(np.min(z), np.max(z), 3))
+                cbar.set_label(label + units, fontsize=30)
+                cbar.ax.tick_params(labelsize=30)
+                # cbar.ax.ticklabel_format(useMathText=True)
+                ax.set_xlabel('x', fontsize=30)
+                ax.set_ylabel('z', fontsize=30)
+                ax.ticklabel_format(useMathText=True)
+                plt.savefig('./output/' + folder + '/' + label + str(i) + ext, format='eps')
 
     print("Done writing results to output files in the ./output/" + folder + " folder.")
 
