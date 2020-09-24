@@ -12,19 +12,19 @@ Input of the problem is given by a set of parameters, namely rock salt and overb
 Please follow these steps to be able to run this project:
 
  1. Install required dependencies. It is highly recommended to install all dependencies in `pipenv` virtual environment (see [guide](https://realpython.com/pipenv-guide/)) using the pipfile (see [guide](https://pipenv-fork.readthedocs.io/en/latest/basics.html)) to make sure that all necessary dependencies are installed and there are no conflicts in the libraries versions.
- 
- 2. Under the 'physics' section set 'True' or 'False' for the desired physics to be taken into account. For example:
+
+ 2. Under the 'physics' section set 'True' or 'False' for the desired physics to be taken into account. To take into account the cyclic loading conditions, set argument `cyclic == True`. To model the tertiary creep and damage evolution, set argument `damage == True`. To use the Newton-Raphson solver set argument `NR == True`, however it is not recommended to use it with complex physics such as damage evolution and cyclicity included due to yet uninvestigated convergence issues.
+
+ 3. Under the 'input parameters' define the given material properties, creep parameters etc.
+
+ 4. Specify the mesh file using:
      ```shell
-     cyclic = True
+     filename = 'mesh_filename.msh'
      ```
-     will take into account cyclicl loading conditions
 
- 3. Under the 'input'
+ 5. Download [ParaView](https://www.paraview.org/) to see the results of the simulation (to open time series of every parameter saved in `*.xdmf` format).
 
-
- 2. Download [ParaView](https://www.paraview.org/) to see the results of the simulation (to open time series of every parameter saved in `*.xdmf` format).
-
- 3. Decide which format you want to use for saving the simulation results: `*.xdmf`, `*.gif` or `*.png`. For example to save the results in the `*.xdmf` format, use the following:
+ 6. Decide which format you want to use for saving the simulation results: `*.xdmf`, `*.gif` or `*.png`. For example to save the results in the `*.xdmf` format, use the following:
      ```shell
      write_results(nt, mesh, output, filename.split(".")[0], '.xdmf')
      ```
@@ -40,15 +40,13 @@ Please follow these steps to be able to run this project:
      write_xls(filename, output)
      ```
 
- 4. To take into account the cyclic loading conditions, set argument `cyclic == True`. To model the tertiary creep and damage evolution, set argument `damage == True`. To use the Newton-Raphson solver set argument `NR == True`, however it is not recommended to use it with complex physics such as damage evolution and cyclicity included due to yet uninvestigated convergence issues.
- 
- 5. Run the `main.py` script from terminal with:
+ 7. Run the `main.py` script from terminal with:
     ```shell
     python main.py
     ```
     or in your IDE.
-    
- 6. After running the simulation, you can find the `Default.log` log fine in the root folder with certain simulation parameters, e.g. how long did it take to finish the simulation and basic results of the model, such as maximum elastic response and maximum creep deformation. The results (if specified) will be saved in the `~/output/mesh_filename/` folder of the project's root directory.
+
+ 8. After running the simulation, you can find the `Default.log` log fine in the root folder with certain simulation parameters, e.g. how long did it take to finish the simulation and basic results of the model, such as maximum elastic response and maximum creep deformation. The results (if specified) will be saved in the `~/output/mesh_filename/` folder of the project's root directory.
 
 ### Structure of the code
 The simulator is written in Finite Element Method Object Oriented Programming (FEMOOP) structure, which means that the FEM routine is implemented using classes and methods. The main classes, that form the engine of the simulator are contained in the `classes.py` library and namely are:
