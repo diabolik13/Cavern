@@ -1,69 +1,15 @@
 # for paraview post processing: coords + (displacement_x, [m]*iHat + displacement_y, [m]*jHat + 0*kHat)
-import time
+import time, sys, getopt
 
 from animate_plot import write_results
 from classeslib import *
 from datetime import datetime
 from elasticity import impose_dirichlet, solve_disp, deviatoric_stress, save_plot_A, write_xls
 from tqdm import tqdm
+from input import *
 
 sys.stdout = Logger("log.txt")
 time_start = time.time()
-
-# physics
-NR = False
-arrhenius = True
-damage = False
-cyclic = False
-impurities = False
-principal_stress = False
-
-# input parameters
-pressure = 'min'  # switch between minumum 'min' and maximum 'max' pressure of the cavern
-boundary = 'cavern'  # whenere to apply Neumann bc ('cavern', 'right', 'top')
-cfl = 0.8
-g = 9.81  # gravity constant, [m/s^2]
-rho = 2250  # average rock salt, [kg/m3]
-depth = 600  # depth from the surface to the salt rock top interface, [m]
-a = 8.1e-28  # creep material constant, [Pa^n]
-bo = 7e-22  # material parameter
-n = 3.5  # creep material constant, [-]
-l = 2.5  # material parameter
-kk = 3  # material parameter
-temp = 298  # temperature, [K]
-q = 51600  # creep activation energy, [J/mol]
-r = 8.314  # gas constant, [J/mol/K]
-th = 1  # thickness of the domain, [m]
-nt = 15  # number of time steps, [-]
-dt = 1e6  # time step size, [s]
-scale = 2e2  # scale the domain from -1...1 to -X...X, where X - is the scale
-sign = 1  # used for cyclic load
-imp_1 = None
-imp_2 = None
-et = [0]  # elapsed time
-filename = 'new_cave2.msh'
-mesh = Mesh('./mesh/' + filename, scale, scale)
-
-if impurities == True:
-    ym = [7e8, 24e9, 44e9]  # Young's modulus, [Pa] for 3 different domain zones (rock salt, potash lens, shale layer)
-    nu = [0.15, 0.2, 0.3]  # Poisson ratio, [-]
-else:
-    ym = 44e9  # Young's modulus, [Pa] for homogeneous case
-    nu = 0.3  # Poisson ratio, [-] for homogeneous case
-
-# modeling heterogeneity
-if impurities == True:
-    # generates impurities content across the domain and assigns it to every fe
-    imp2 = mesh.peak(100, -350, 150)
-    imp3 = mesh.onedpeak(25, -100)
-
-    imp_1 = np.zeros((mesh.nele(),))
-    imp_2 = np.zeros((mesh.nele(),))
-
-    for elt in range(mesh.nele()):
-        nodes = mesh.cells(elt)
-        imp_1[elt] = np.mean(imp2[nodes])
-        imp_2[elt] = np.mean(imp3[nodes])
 
 # define shape functions, stiffness matrix, load vector and boundary conditions
 sfns = Shapefns()
@@ -71,7 +17,7 @@ V = FunctionSpace(mesh, sfns, ym, nu, imp_1, imp_2)
 k = V.stiff_matrix()
 fo, _ = V.load_vector(rho, temp, g, depth, pressure, 'cavern')
 d_bnd = mesh.extract_bnd(lx=True, ly=False,
-                         rx=True, ry=False,
+                         rx=False, ry=False,
                          bx=False, by=True,
                          tx=False, ty=False)
 k, fo = impose_dirichlet(k, fo, d_bnd)
@@ -157,6 +103,7 @@ if not NR:
             if damage:
                 # omega = b * (von_mises_stress(stressg).transpose()) ** kk / (((1 - omega) * dt) ** l)
                 omega = b * (von_mises_stress(stressg).transpose()) ** kk / ((1 - omega) ** l) * dt
+                f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg, strain_crg, arrhenius, omega)
                 test = 1
                 # s_I = 1 / 2 * (stressg[0] - stressg[1]) + 1 / 2 * np.sqrt(
                 #     (stressg[0] - stressg[1]) ** 2 + 4 * (stressg[2]) ** 2)
@@ -164,9 +111,7 @@ if not NR:
                 # sw_eq = 1 / 2 * (s_I + svmg)
                 # sw_eq = svmg
 
-            if damage:
-                f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg, strain_crg, arrhenius, omega)
-            else:
+            if cyclic:
                 if sign > 0:
                     f_cr, strain_crg = V.creep_load_vector(dt, a, n, q, r, temp, stressg1, strain_crg, arrhenius)
                 else:
@@ -184,11 +129,11 @@ if not NR:
 
             if cyclic:
                 if sign > 0:
-                    stress = stress2
-                    stressg = stressg2
-                else:
                     stress = stress1
                     stressg = stressg1
+                else:
+                    stress = stress2
+                    stressg = stressg2
 
             # write output data
             disp_out[:, i + 1] = np.concatenate((u[::2].reshape(mesh.nnodes(), ),
@@ -292,10 +237,10 @@ print("Total simulation time is {} days.\n Maximum elastic displacement is {} m,
     float("{0:.1e}".format(np.max(abs(output['displacement'][:, -1] - output['displacement'][:, 0]))))))
 
 # save 2D results
-write_results(nt, mesh, output, filename.split(".")[0], '.eps', amp=False)
+# write_results(nt, mesh, output, filename.split(".")[0], '.eps', amp=False)
 # write_results(nt, mesh, output, filename.split(".")[0], '.xdmf')
 # save parameters in point A evolution in time
 # index = np.where(output['displacement'] == np.amax(output['displacement']))[0]
-save_plot_A(nt, mesh, output, filename.split(".")[0], 85, 'eps')
+save_plot_A(nt, mesh, output, filename.split(".")[0], 85, 'png')
 # write results to xls file
 # write_xls(filename, output)

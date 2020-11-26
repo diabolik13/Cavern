@@ -648,7 +648,7 @@ class FunctionSpace(object):
 
         f_cr = assemble_creep_forces_vector()
 
-        return f_cr, strain_crg
+        return -f_cr, strain_crg
 
     def gauss_strain(self, u):
         """
