@@ -31,3 +31,5 @@ tqdm==4.62.3
 urllib3==1.26.8
 xlrd==2.0.1
 XlsxWriter==3.0.2
+
+CoolProp~=6.4.2.dev0
